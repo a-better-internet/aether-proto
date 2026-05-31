@@ -4,23 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aether Spatial Sequencer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #020617; /* Deep slate */
-            --panel-bg: rgba(15, 23, 42, 0.85);
+            --bg-dark: #020617;
+            --panel-bg: rgba(8, 15, 30, 0.95);
             --theme-cyan: #06b6d4;
             --theme-teal: #14b8a6;
-            --theme-indigo: #6366f1;
+            --theme-indigo: #818cf8;
             --theme-amber: #f59e0b;
             --theme-pink: #ec4899;
+            --border: rgba(6, 182, 212, 0.12);
+            --text-dim: #475569;
+            --text-mid: #94a3b8;
+            --text-bright: #cbd5e1;
         }
-        body { 
-            background: var(--bg-dark); 
-            color: #e2e8f0; 
-            margin: 0; 
-            overflow: hidden; 
-            font-family: 'Inter', system-ui, sans-serif;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-dark);
+            color: #e2e8f0;
+            overflow: hidden;
+            font-family: 'DM Sans', system-ui, sans-serif;
             user-select: none;
         }
         #app-container {
@@ -29,442 +34,625 @@
             height: 100vh;
             width: 100vw;
         }
+
+        /* ── Canvas ─────────────────────────────────────── */
         #canvas-wrapper {
             position: relative;
             flex-grow: 1;
-            width: 100%;
-            background: radial-gradient(circle at center, #0f172a 0%, var(--bg-dark) 100%);
+            background: radial-gradient(ellipse at 50% 60%, #0c1a2e 0%, var(--bg-dark) 80%);
             overflow: hidden;
             cursor: crosshair;
         }
         canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-        
-        /* Modular Synth UI Styles */
+
+        /* ── HUD ─────────────────────────────────────────── */
+        #hud {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #hud h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(6,182,212,0.6);
+            line-height: 1;
+        }
+        #hud h2 {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            color: var(--theme-cyan);
+            letter-spacing: 0.4em;
+            margin-top: 3px;
+        }
+        #system-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #f43f5e;
+        }
+        #status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #f43f5e;
+            animation: blink 1.2s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        #node-count {
+            margin-top: 6px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+        }
+        #help-legend {
+            margin-top: 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            line-height: 1.8;
+            color: var(--text-dim);
+            background: rgba(2,6,23,0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 4px;
+            padding: 6px 8px;
+        }
+        #help-legend span { color: var(--text-mid); }
+
+        /* ── Control Panel ───────────────────────────────── */
         #control-panel {
             flex-shrink: 0;
-            height: 38vh;
-            min-height: 340px;
             background: var(--panel-bg);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border-top: 1px solid rgba(6, 182, 212, 0.15);
+            border-top: 1px solid var(--border);
             display: grid;
-            grid-template-columns: 280px 1fr;
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
+            grid-template-columns: 220px 1fr;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.7);
         }
-        .knob-group {
+
+        /* Left column */
+        #transport {
+            padding: 10px;
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+            gap: 7px;
+            background: rgba(4,10,20,0.6);
+        }
+
+        /* ── Buttons ─────────────────────────────────────── */
+        .power-btn {
+            width: 100%;
+            padding: 8px 0;
+            border-radius: 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            background: #0c1525;
+            border: 1px solid #1e2d45;
+            display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            width: 100%;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .knob-label {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: #94a3b8;
-            font-weight: 600;
+        .power-btn:hover { border-color: #2d4a6e; color: #94a3b8; }
+        .power-btn.active {
+            color: var(--theme-teal);
+            border-color: rgba(20,184,166,0.4);
+            background: rgba(20,184,166,0.08);
+            box-shadow: 0 0 14px rgba(20,184,166,0.15);
+            text-shadow: 0 0 8px var(--theme-teal);
+        }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+
+        .action-btn {
+            padding: 5px 4px;
+            background: rgba(15,23,42,0.7);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 5px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.56rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            color: var(--text-mid);
+            cursor: pointer;
             text-align: center;
+            transition: all 0.15s;
+            white-space: nowrap;
         }
-        .knob-val {
-            font-size: 0.75rem;
+        .action-btn:hover { background: rgba(30,41,59,0.9); border-color: rgba(255,255,255,0.18); color: var(--text-bright); }
+        .action-btn.active {
+            background: rgba(6,182,212,0.12);
+            border-color: rgba(6,182,212,0.4);
             color: var(--theme-cyan);
-            font-family: monospace;
         }
-        
-        /* Custom Pro Sliders */
+        .action-btn.emit { color: #a5b4fc; border-color: rgba(99,102,241,0.25); }
+        .action-btn.emit:hover { border-color: rgba(99,102,241,0.55); color: #c7d2fe; }
+        .action-btn.recv { color: #67e8f9; border-color: rgba(6,182,212,0.25); }
+        .action-btn.recv:hover { border-color: rgba(6,182,212,0.55); color: #a5f3fc; }
+        .action-btn.danger { color: #fb7185; border-color: rgba(251,113,133,0.2); }
+        .action-btn.danger:hover { background: rgba(251,113,133,0.1); border-color: rgba(251,113,133,0.5); }
+        .action-btn.warn { color: var(--theme-amber); border-color: rgba(245,158,11,0.2); }
+        .action-btn.warn:hover { border-color: rgba(245,158,11,0.5); }
+        .action-btn.full { grid-column: span 2; }
+
+        /* Preset section */
+        .preset-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .preset-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.5rem;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .preset-slots { display: flex; gap: 4px; flex: 1; }
+        .preset-btn {
+            flex: 1;
+            padding: 4px 0;
+            background: rgba(15,23,42,0.7);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--text-mid);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .preset-btn:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+        .store-btn {
+            padding: 4px 7px;
+            background: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.5rem;
+            color: #fc8181;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .store-btn:hover, .store-btn.active { background: rgba(239,68,68,0.35); color: #fff; }
+
+        /* ── Right panel (params) ────────────────────────── */
+        #params-panel {
+            padding: 8px 12px 8px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-header svg { flex-shrink: 0; opacity: 0.5; }
+        .section-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.5rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-mid);
+        }
+        .param-grid {
+            display: grid;
+            gap: 6px 14px;
+        }
+        .param-grid.cols-9 { grid-template-columns: repeat(9, 1fr); }
+        .param-grid.cols-8 { grid-template-columns: repeat(8, 1fr); }
+
+        /* ── Knob Group ──────────────────────────────────── */
+        .kg {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            align-items: stretch;
+        }
+        .kg-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.48rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .kg-label.cyan  { color: #22d3ee; }
+        .kg-label.teal  { color: #2dd4bf; }
+        .kg-label.indigo{ color: #a5b4fc; }
+        .kg-label.amber { color: #fcd34d; }
+        .kg-label.pink  { color: #f9a8d4; }
+        .kg-label.green { color: #86efac; }
+        .kg-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            color: var(--theme-cyan);
+            white-space: nowrap;
+        }
+        .kg-val.amber { color: var(--theme-amber); }
+        .kg-val.indigo { color: var(--theme-indigo); }
+        .kg-val.pink { color: var(--theme-pink); }
+        .kg-val.green { color: #86efac; }
+
+        /* ── Sliders ─────────────────────────────────────── */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
+            height: 20px;
             background: transparent;
+            cursor: pointer;
         }
         input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 3px;
+            background: #1e2d45;
+            border-radius: 2px;
+        }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 20px; width: 12px;
+            width: 10px;
+            height: 18px;
+            margin-top: -7.5px;
             border-radius: 2px;
-            background: #fff;
-            cursor: pointer;
-            margin-top: -8px;
-            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
-            border: 1px solid #cbd5e1;
+            background: #e2e8f0;
+            border: none;
+            box-shadow: 0 0 8px rgba(6,182,212,0.4);
             transition: transform 0.1s;
         }
-        input[type=range]::-webkit-slider-thumb:active {
-            transform: scale(1.2);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 4px;
-            cursor: pointer;
-            background: #334155;
+        input[type=range]::-webkit-slider-thumb:active { transform: scaleY(1.2); }
+        input[type=range]::-moz-range-track {
+            height: 3px;
+            background: #1e2d45;
             border-radius: 2px;
-            border: 1px solid #1e293b;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 10px; height: 18px;
+            border-radius: 2px;
+            background: #e2e8f0;
+            border: none;
         }
 
-        /* Custom Dropdowns */
+        /* ── Dropdown ────────────────────────────────────── */
         select.synth-select {
-            background: #1e293b;
+            width: 100%;
+            background: #0c1525;
             color: var(--theme-cyan);
-            border: 1px solid #334155;
-            padding: 4px 8px;
+            border: 1px solid #1e2d45;
             border-radius: 4px;
-            font-size: 0.7rem;
-            font-family: monospace;
+            padding: 3px 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
             outline: none;
-            width: 90%;
             cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            text-overflow: ellipsis;
         }
-        select.synth-select:focus {
-            border-color: var(--theme-cyan);
-            box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
-        }
-        
-        /* Transport Button */
-        .power-btn {
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            box-shadow:  5px 5px 10px #080c14, -5px -5px 10px #16223a;
-            transition: all 0.2s ease;
-        }
-        .power-btn.active {
-            box-shadow: inset 5px 5px 10px #080c14, inset -5px -5px 10px #16223a;
-            color: var(--theme-teal);
-            text-shadow: 0 0 10px var(--theme-teal);
+        select.synth-select:focus { border-color: rgba(6,182,212,0.5); }
+        select.synth-select.amber { color: var(--theme-amber); }
+        select.synth-select.teal  { color: var(--theme-teal); }
+
+        /* ── Divider ─────────────────────────────────────── */
+        .divider {
+            width: 1px;
+            background: var(--border);
+            align-self: stretch;
+            margin: 0 2px;
         }
 
-        .action-btn {
-            background: rgba(30, 41, 59, 0.5);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            transition: all 0.2s;
-        }
-        .action-btn:hover {
-            background: rgba(51, 65, 85, 0.8);
-            border-color: rgba(148, 163, 184, 0.5);
-        }
-        .action-btn.active {
-            background: rgba(6, 182, 212, 0.2);
-            border-color: var(--theme-cyan);
-            color: var(--theme-cyan);
-            box-shadow: inset 0 0 10px rgba(6, 182, 212, 0.2);
-        }
-
-        .hud-text {
-            font-family: monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
+        /* responsive */
+        @media (max-width: 900px) {
+            .param-grid.cols-9,
+            .param-grid.cols-8 { grid-template-columns: repeat(5, 1fr); }
+            #control-panel { grid-template-columns: 180px 1fr; }
         }
     </style>
 </head>
 <body>
 
 <div id="app-container">
-    <!-- Visual Engine -->
+
+    <!-- ── Visual Engine ─────────────────────────────── -->
     <div id="canvas-wrapper">
         <canvas id="aetherCanvas" oncontextmenu="return false;"></canvas>
-        <div class="absolute top-6 left-6 pointer-events-none">
-            <h1 class="text-3xl font-black tracking-widest text-white drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]">AETHER</h1>
-            <h2 class="text-sm font-bold text-cyan-400 tracking-[0.3em] mt-1">SPATIAL INTERFERENCE</h2>
-            <div id="system-status" class="mt-4 flex items-center gap-3 hud-text text-xs text-rose-500">
-                <div class="w-2 h-2 rounded-full bg-rose-500 animate-pulse" id="status-indicator"></div>
+
+        <div id="hud">
+            <h1>AETHER</h1>
+            <h2>SPATIAL INTERFERENCE ENGINE</h2>
+
+            <div id="system-status">
+                <div id="status-dot"></div>
                 <span id="status-text">SYSTEM OFFLINE</span>
             </div>
-            <div class="mt-2 hud-text text-[9px] text-slate-400 leading-relaxed bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 inline-block backdrop-blur-sm">
-                <span class="text-amber-400">►</span> X/Y AXIS: STEREO PAN & PITCH<br>
-                <span class="text-teal-400">►</span> DBL-CLICK NODE: CYCLE OCTAVE OR PATTERN<br>
-                <span class="text-indigo-400">►</span> SHIFT-CLICK: MUTE/UNMUTE NODE<br>
-                <span class="text-rose-400">►</span> RIGHT-CLICK: DELETE NODE
+
+            <div id="node-count">EMT: 0 &nbsp;|&nbsp; RCV: 0 &nbsp;|&nbsp; RIPPLES: 0</div>
+
+            <div id="help-legend">
+                <span>►</span> X AXIS: STEREO PAN<br>
+                <span>►</span> Y AXIS: PITCH<br>
+                <span>►</span> DBL-CLICK EMIT: CYCLE PULSE MODE<br>
+                <span>►</span> DBL-CLICK RCV: CYCLE OCTAVE<br>
+                <span>►</span> RIGHT-CLICK: DELETE NODE
             </div>
         </div>
     </div>
 
-    <!-- Control Surface -->
+    <!-- ── Control Surface ───────────────────────────── -->
     <div id="control-panel">
-        
-        <!-- Transport & Injection -->
-        <div class="p-5 border-r border-slate-700/50 flex flex-col justify-between bg-slate-900/50">
-            <button id="toggleEngineBtn" class="power-btn w-full py-3 rounded-xl text-slate-400 font-bold tracking-widest text-sm flex items-center justify-center gap-2 mb-3">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+
+        <!-- Left: Transport -->
+        <div id="transport">
+            <button id="toggleEngineBtn" class="power-btn">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 ENGAGE AUDIO
             </button>
-            
-            <div class="grid grid-cols-2 gap-2 mb-2">
-                <button id="addEmitterBtn" class="w-full py-2 action-btn text-indigo-300 text-[10px] font-bold tracking-widest rounded-lg flex flex-col items-center justify-center gap-1">
-                    <div class="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_#6366f1]"></div>+ EMIT
-                </button>
-                <button id="addResonatorBtn" class="w-full py-2 action-btn text-cyan-300 text-[10px] font-bold tracking-widest rounded-lg flex flex-col items-center justify-center gap-1">
-                    <div class="w-2 h-2 rotate-45 border-2 border-cyan-400 shadow-[0_0_8px_#06b6d4]"></div>+ RCV
-                </button>
-                
-                <button id="toggleDriftBtn" class="w-full py-2 action-btn text-slate-300 text-[10px] font-bold tracking-widest rounded-lg">
-                    DRIFT: OFF
-                </button>
-                <button id="toggleMagnetBtn" class="w-full py-2 action-btn text-pink-300 text-[10px] font-bold tracking-widest rounded-lg border-pink-900/50">
-                    MAGNETISM: OFF
-                </button>
-                <button id="toggleSnapBtn" class="w-full py-2 action-btn text-slate-300 text-[10px] font-bold tracking-widest rounded-lg">
-                    SNAP: OFF
-                </button>
 
-                <button id="toggleGridBtn" class="w-full py-2 action-btn text-slate-300 text-[10px] font-bold tracking-widest rounded-lg">
-                    GRID: OFF
-                </button>
-                <button id="mutateBtn" class="w-full py-2 action-btn text-amber-400 text-[10px] font-bold tracking-widest rounded-lg border-amber-900/50">
-                    MUTATE
-                </button>
-                <button id="clearBtn" class="w-full py-2 action-btn text-rose-400 text-[10px] font-bold tracking-widest rounded-lg border-rose-900/50 col-span-2">
-                    PURGE ALL
-                </button>
+            <div class="btn-grid">
+                <button id="addEmitterBtn" class="action-btn emit">+ EMITTER</button>
+                <button id="addResonatorBtn" class="action-btn recv">+ RECEIVER</button>
+                <button id="toggleDriftBtn" class="action-btn">DRIFT: OFF</button>
+                <button id="toggleSnapBtn" class="action-btn">SNAP: OFF</button>
+                <button id="toggleGridBtn" class="action-btn">GRID: OFF</button>
+                <button id="mutateBtn" class="action-btn warn">MUTATE</button>
+                <button id="muteVoicesBtn" class="action-btn full" style="color:#f9a8d4;border-color:rgba(236,72,153,0.25);">VOICES: ON</button>
+                <button id="clearBtn" class="action-btn danger full">PURGE ALL</button>
             </div>
-            
-            <div class="mt-1 pt-3 border-t border-slate-700/50 flex flex-col gap-2">
-                <div class="flex justify-between items-center px-1">
-                    <span class="text-[9px] font-bold text-slate-400 tracking-widest">PRESETS</span>
-                    <button id="preset-store" class="px-2 py-1 bg-rose-900/30 text-rose-400 text-[9px] font-bold rounded hover:bg-rose-800/50 transition-colors">STORE</button>
-                </div>
-                <div class="grid grid-cols-4 gap-1">
-                    <button class="preset-btn py-1 action-btn text-slate-300 text-xs font-bold rounded" data-slot="0">1</button>
-                    <button class="preset-btn py-1 action-btn text-slate-300 text-xs font-bold rounded" data-slot="1">2</button>
-                    <button class="preset-btn py-1 action-btn text-slate-300 text-xs font-bold rounded" data-slot="2">3</button>
-                    <button class="preset-btn py-1 action-btn text-slate-300 text-xs font-bold rounded" data-slot="3">4</button>
+
+            <!-- Presets -->
+            <div style="border-top:1px solid var(--border); padding-top:7px; display:flex; flex-direction:column; gap:5px;">
+                <div class="preset-row">
+                    <span class="preset-label">PRESETS</span>
+                    <div class="preset-slots">
+                        <button class="preset-btn" data-slot="0">1</button>
+                        <button class="preset-btn" data-slot="1">2</button>
+                        <button class="preset-btn" data-slot="2">3</button>
+                        <button class="preset-btn" data-slot="3">4</button>
+                    </div>
+                    <button id="preset-store" class="store-btn">STORE</button>
                 </div>
             </div>
         </div>
 
-        <!-- Synthesis Engine -->
-        <div class="p-6 flex flex-col justify-between overflow-y-auto">
-            
-            <!-- Global / Spatial Section -->
-            <div class="mb-4">
-                <div class="border-b border-slate-700/50 pb-2 mb-3 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path></svg>
-                    <span class="text-xs font-bold text-slate-400 tracking-widest">GLOBAL & SPACE</span>
+        <!-- Right: Params -->
+        <div id="params-panel">
+
+            <!-- Global & Space -->
+            <div class="section-header">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/></svg>
+                <span class="section-title">Global &amp; Space</span>
+            </div>
+            <div class="param-grid" style="grid-template-columns: repeat(11, 1fr);">
+                <div class="kg">
+                    <span class="kg-label">Master Vol</span>
+                    <input type="range" id="param-vol" min="0" max="1" step="0.01" value="0.7">
+                    <span class="kg-val" id="val-vol">70%</span>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-x-5 gap-y-4">
-                    <div class="knob-group">
-                        <span class="knob-label">Master Vol</span>
-                        <input type="range" id="param-vol" min="0" max="1" step="0.01" value="0.7">
-                        <span class="knob-val" id="val-vol">70%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Drone Vol</span>
-                        <input type="range" id="param-drone" min="0" max="0.2" step="0.005" value="0.04">
-                        <span class="knob-val" id="val-drone">20%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Wave Vel.</span>
-                        <input type="range" id="param-speed" min="20" max="300" step="10" value="100">
-                        <span class="knob-val" id="val-speed">100 px/s</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Pulse Dens.</span>
-                        <input type="range" id="param-pulserate" min="0.2" max="3.0" step="0.1" value="1.0">
-                        <span class="knob-val" id="val-pulserate">1.0x</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Master Filter</span>
-                        <input type="range" id="param-masterFilter" min="200" max="15000" step="100" value="8000">
-                        <span class="knob-val" id="val-masterFilter">8000Hz</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">LFO Sweep</span>
-                        <input type="range" id="param-lfoDepth" min="0" max="4000" step="50" value="0">
-                        <span class="knob-val" id="val-lfoDepth">0Hz</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Base Key</span>
-                        <select id="param-key" class="synth-select mt-1 text-amber-300">
-                            <option value="0">C</option>
-                            <option value="1">C# / Db</option>
-                            <option value="2">D</option>
-                            <option value="3">D# / Eb</option>
-                            <option value="4">E</option>
-                            <option value="5">F</option>
-                            <option value="6">F# / Gb</option>
-                            <option value="7">G</option>
-                            <option value="8">G# / Ab</option>
-                            <option value="9">A</option>
-                            <option value="10">A# / Bb</option>
-                            <option value="11">B</option>
-                        </select>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Scale</span>
-                        <select id="param-scale" class="synth-select mt-1 text-cyan-300">
-                            <option value="lydian">Lydian</option>
-                            <option value="harmonicMinor">Harm. Minor</option>
-                            <option value="dorian">Dorian</option>
-                            <option value="hirajoshi">Hirajoshi</option>
-                            <option value="wholeTone">Whole Tone</option>
-                            <option value="chromatic">Chromatic</option>
-                        </select>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Pitch Shift</span>
-                        <input type="range" id="param-pitch" min="-2" max="2" step="1" value="0">
-                        <span class="knob-val" id="val-pitch">0 Oct</span>
-                    </div>
+                <div class="kg">
+                    <span class="kg-label green">Drone Vol</span>
+                    <input type="range" id="param-drone" min="0" max="1" step="0.01" value="0.3">
+                    <span class="kg-val green" id="val-drone">30%</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label green">Drone Fade</span>
+                    <input type="range" id="param-droneAttack" min="0.05" max="4.0" step="0.05" value="1.5">
+                    <span class="kg-val green" id="val-droneAttack">1.5s</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label green">Drone Ring</span>
+                    <input type="range" id="param-droneSustain" min="1.0" max="20.0" step="0.5" value="6.0">
+                    <span class="kg-val green" id="val-droneSustain">6.0s</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label">Wave Speed</span>
+                    <input type="range" id="param-speed" min="20" max="300" step="10" value="100">
+                    <span class="kg-val" id="val-speed">100px/s</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label">Pulse Rate</span>
+                    <input type="range" id="param-pulserate" min="0.2" max="3.0" step="0.1" value="1.0">
+                    <span class="kg-val" id="val-pulserate">1.0×</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label cyan">Hi-Cut Filter</span>
+                    <input type="range" id="param-masterFilter" min="200" max="15000" step="100" value="8000">
+                    <span class="kg-val cyan" id="val-masterFilter">8000Hz</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label cyan">Filter LFO</span>
+                    <input type="range" id="param-lfoDepth" min="0" max="4000" step="50" value="0">
+                    <span class="kg-val cyan" id="val-lfoDepth">0Hz</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label amber">Base Key</span>
+                    <select id="param-key" class="synth-select amber">
+                        <option value="0">C</option>
+                        <option value="1">C# / Db</option>
+                        <option value="2">D</option>
+                        <option value="3">D# / Eb</option>
+                        <option value="4">E</option>
+                        <option value="5">F</option>
+                        <option value="6">F# / Gb</option>
+                        <option value="7">G</option>
+                        <option value="8">G# / Ab</option>
+                        <option value="9">A</option>
+                        <option value="10">A# / Bb</option>
+                        <option value="11">B</option>
+                    </select>
+                </div>
+                <div class="kg">
+                    <span class="kg-label">Scale</span>
+                    <select id="param-scale" class="synth-select teal">
+                        <option value="lydian">Lydian</option>
+                        <option value="harmonicMinor">Harm. Minor</option>
+                        <option value="dorian">Dorian</option>
+                        <option value="hirajoshi">Hirajoshi</option>
+                        <option value="wholeTone">Whole Tone</option>
+                        <option value="chromatic">Chromatic</option>
+                    </select>
+                </div>
+                <div class="kg">
+                    <span class="kg-label">Pitch Shift</span>
+                    <input type="range" id="param-pitch" min="-2" max="2" step="1" value="0">
+                    <span class="kg-val" id="val-pitch">0 Oct</span>
                 </div>
             </div>
 
-            <!-- Synth & Effects Section -->
-            <div>
-                <div class="border-b border-slate-700/50 pb-2 mb-3 mt-2 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
-                    <span class="text-xs font-bold text-teal-400 tracking-widest">TIMBRE, ENVELOPE & FX</span>
+            <!-- Timbre, Envelope & FX -->
+            <div class="section-header" style="margin-top:2px;">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+                <span class="section-title" style="color:#2dd4bf;">Timbre, Envelope &amp; FX</span>
+            </div>
+            <div class="param-grid cols-9">
+                <div class="kg">
+                    <span class="kg-label teal">Waveform</span>
+                    <select id="param-wave" class="synth-select teal">
+                        <option value="sine">Sine</option>
+                        <option value="triangle">Triangle</option>
+                        <option value="sawtooth">Sawtooth</option>
+                        <option value="square">Square</option>
+                    </select>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-x-3 gap-y-4">
-                    <div class="knob-group">
-                        <span class="knob-label">Waveform</span>
-                        <select id="param-wave" class="synth-select mt-1 text-teal-300">
-                            <option value="sine">Sine</option>
-                            <option value="triangle">Triangle</option>
-                            <option value="sawtooth">Sawtooth</option>
-                            <option value="square">Square</option>
-                        </select>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-rose-300">Sub Bass</span>
-                        <input type="range" id="param-sub" min="0" max="1" step="0.05" value="0.5">
-                        <span class="knob-val text-rose-300" id="val-sub">50%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-amber-300">Harmonics</span>
-                        <input type="range" id="param-harmonics" min="0" max="1" step="0.05" value="0.3">
-                        <span class="knob-val text-amber-300" id="val-harmonics">30%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-rose-300">Analog Drive</span>
-                        <input type="range" id="param-drive" min="0" max="100" step="1" value="0">
-                        <span class="knob-val text-rose-300" id="val-drive">0%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">FM Depth</span>
-                        <input type="range" id="param-fm" min="0" max="1500" step="10" value="400">
-                        <span class="knob-val" id="val-fm">400Hz</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Voice Cutoff</span>
-                        <input type="range" id="param-cutoff" min="200" max="8000" step="50" value="3000">
-                        <span class="knob-val" id="val-cutoff">3000Hz</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Attack</span>
-                        <input type="range" id="param-attack" min="0.005" max="1.0" step="0.005" value="0.02">
-                        <span class="knob-val" id="val-attack">20ms</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label">Decay Rel.</span>
-                        <input type="range" id="param-decay" min="0.1" max="5.0" step="0.1" value="2.5">
-                        <span class="knob-val" id="val-decay">2.5s</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-indigo-300">Echo Time</span>
-                        <input type="range" id="param-dtime" min="0.1" max="1.5" step="0.05" value="0.75">
-                        <span class="knob-val text-indigo-300" id="val-dtime">750ms</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-indigo-300">Echo Fbk</span>
-                        <input type="range" id="param-dfb" min="0" max="0.9" step="0.05" value="0.5">
-                        <span class="knob-val text-indigo-300" id="val-dfb">50%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-amber-300">Reverb Wash</span>
-                        <input type="range" id="param-reverb" min="0" max="1" step="0.05" value="0.3">
-                        <span class="knob-val text-amber-300" id="val-reverb">30%</span>
-                    </div>
-                    <div class="knob-group">
-                        <span class="knob-label text-amber-300">Tape Warble</span>
-                        <input type="range" id="param-flutter" min="0" max="0.01" step="0.0005" value="0">
-                        <span class="knob-val text-amber-300" id="val-flutter">0ms</span>
-                    </div>
+                <div class="kg">
+                    <span class="kg-label teal">FM Depth</span>
+                    <input type="range" id="param-fm" min="0" max="1500" step="10" value="400">
+                    <span class="kg-val" id="val-fm">400Hz</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label teal">Voice Hi-Cut</span>
+                    <input type="range" id="param-cutoff" min="200" max="8000" step="50" value="3000">
+                    <span class="kg-val" id="val-cutoff">3000Hz</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label">Attack</span>
+                    <input type="range" id="param-attack" min="0.005" max="1.0" step="0.005" value="0.02">
+                    <span class="kg-val" id="val-attack">20ms</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label">Decay/Rel</span>
+                    <input type="range" id="param-decay" min="0.1" max="5.0" step="0.1" value="2.5">
+                    <span class="kg-val" id="val-decay">2.5s</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label indigo">Echo Time</span>
+                    <input type="range" id="param-dtime" min="0.1" max="1.5" step="0.05" value="0.75">
+                    <span class="kg-val indigo" id="val-dtime">750ms</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label indigo">Echo Fdbk</span>
+                    <input type="range" id="param-dfb" min="0" max="0.9" step="0.05" value="0.5">
+                    <span class="kg-val indigo" id="val-dfb">50%</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label amber">Reverb</span>
+                    <input type="range" id="param-reverb" min="0" max="1" step="0.05" value="0.3">
+                    <span class="kg-val amber" id="val-reverb">30%</span>
+                </div>
+                <div class="kg">
+                    <span class="kg-label amber">Tape Warble</span>
+                    <input type="range" id="param-flutter" min="0" max="0.01" step="0.0005" value="0">
+                    <span class="kg-val amber" id="val-flutter">0ms</span>
                 </div>
             </div>
 
-        </div>
-    </div>
-</div>
+        </div><!-- /params-panel -->
+    </div><!-- /control-panel -->
+
+</div><!-- /app-container -->
 
 <script>
-/**
- * UTILITIES & SAFETY
- */
+/* ─────────────────────────────────────────────────────────
+   UTILITIES
+──────────────────────────────────────────────────────────── */
 const MathUtils = {
-    safeFloat: (val, fallback = 0) => {
-        const num = parseFloat(val);
-        return Number.isFinite(num) ? num : fallback;
+    safeFloat(val, fallback = 0) {
+        const n = parseFloat(val);
+        return Number.isFinite(n) ? n : fallback;
     },
-    clamp: (val, min, max) => Math.max(min, Math.min(max, val)),
-    map: (n, start1, stop1, start2, stop2) => {
-        return ((n - start1) / (stop1 - start1)) * (stop2 - start2) + start2;
-    }
+    clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v)),
+    map: (n, s1, e1, s2, e2) => ((n - s1) / (e1 - s1)) * (e2 - s2) + s2
 };
 
-/**
- * AUDIO ENGINE
- * Extended with Master Filter, LFO, and Convolver Reverb.
- */
+/* ─────────────────────────────────────────────────────────
+   AUDIO ENGINE
+   KEY FIX: Drone now routes directly to ctx.destination,
+   completely independent of masterGain so its volume is
+   not affected by the master volume fader.
+──────────────────────────────────────────────────────────── */
 class SpatialAudioEngine {
     constructor() {
         this.ctx = null;
-        this.masterGain = null;
-        this.delayNode = null;
-        this.feedbackNode = null;
         this.isInitialized = false;
-        
-        // --- Dynamic Scale Intervals (Semitones from root) ---
+
         this.scaleIntervals = {
-            lydian: [0, 2, 4, 6, 7, 9, 11],
+            lydian:        [0, 2, 4, 6, 7, 9, 11],
             harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
-            dorian: [0, 2, 3, 5, 7, 9, 10],
-            hirajoshi: [0, 2, 3, 7, 8],
-            wholeTone: [0, 2, 4, 6, 8, 10],
-            chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            dorian:        [0, 2, 3, 5, 7, 9, 10],
+            hirajoshi:     [0, 2, 3, 7, 8],
+            wholeTone:     [0, 2, 4, 6, 8, 10],
+            chromatic:     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
         };
-        
-        this.currentScale = 'lydian';
-        this.currentKey = 0; // 0 = C
-        this.globalPitch = 0; // -2 to +2 octaves
-        this.currentWaveform = 'sine';
-        this.activeScale = [];
+
+        this.currentScale  = 'lydian';
+        this.currentKey    = 0;
+        this.globalPitch   = 0;
+        this.currentWave   = 'sine';
+        this.activeScale   = [];
 
         this.params = {
-            masterVolume: 0.7,
-            droneLevel: 0.04,
-            subLevel: 0.5,
-            harmonicsLevel: 0.3,
-            fmAmount: 400,
-            filterCutoff: 3000,
-            attack: 0.02,
-            decay: 2.5,
-            delayTime: 0.75,
+            masterVolume:  0.7,
+            droneLevel:    0.3,    // sustain level of resonance tail (independent of pluck peak)
+            droneAttack:   1.5,    // how slowly the drone fades in (seconds)
+            droneSustain:  6.0,    // how long the drone rings out (seconds)
+            fmAmount:      400,
+            filterCutoff:  3000,
+            attack:        0.02,
+            decay:         2.5,
+            delayTime:     0.75,
             delayFeedback: 0.5,
-            masterFilter: 8000,
-            lfoDepth: 0,
-            reverbWash: 0.3,
-            tapeFlutter: 0,
-            driveAmount: 0
+            masterFilter:  8000,
+            lfoDepth:      0,
+            reverbWash:    0.3,
+            tapeFlutter:   0
         };
-        
+
         this.updateScale();
     }
 
     updateScale() {
         this.activeScale = [];
-        const intervals = this.scaleIntervals[this.currentScale];
-        const baseFreqC2 = 65.406;
-        
-        // Generate 21 notes to cover vertical space
-        for(let i = 0; i < 21; i++) {
-            const octave = Math.floor(i / intervals.length);
-            const intervalIndex = i % intervals.length;
-            const semitones = this.currentKey + intervals[intervalIndex] + (octave * 12) + (this.globalPitch * 12);
-            const freq = baseFreqC2 * Math.pow(2, semitones / 12);
-            this.activeScale.push(freq);
+        const intervals  = this.scaleIntervals[this.currentScale];
+        const C2         = 65.406;
+
+        for (let i = 0; i < 21; i++) {
+            const oct      = Math.floor(i / intervals.length);
+            const idx      = i % intervals.length;
+            const semis    = this.currentKey + intervals[idx] + oct * 12 + this.globalPitch * 12;
+            this.activeScale.push(C2 * Math.pow(2, semis / 12));
         }
 
         if (this.droneOsc && this.ctx) {
-            const droneFreq = baseFreqC2 * Math.pow(2, (this.currentKey + (this.globalPitch - 1) * 12) / 12);
+            const droneFreq = C2 * Math.pow(2, (this.currentKey + (this.globalPitch - 1) * 12) / 12);
             this.droneOsc.frequency.setTargetAtTime(droneFreq, this.ctx.currentTime, 0.5);
         }
     }
@@ -472,131 +660,162 @@ class SpatialAudioEngine {
     init() {
         if (this.isInitialized) return;
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // --- Master Analyser for Oscilloscope ---
-        this.analyser = this.ctx.createAnalyser();
-        this.analyser.fftSize = 2048;
 
-        // --- Output Chain Setup ---
-        this.compressor = this.ctx.createDynamicsCompressor();
-        this.compressor.threshold.setValueAtTime(-24, this.ctx.currentTime);
-        this.compressor.ratio.setValueAtTime(12, this.ctx.currentTime);
-        this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+        const t = this.ctx.currentTime;
 
-        // --- Master Brickwall Limiter ---
-        // Prevents digital clipping when pulse density/polyphony gets extreme
-        this.limiter = this.ctx.createDynamicsCompressor();
-        this.limiter.threshold.setValueAtTime(-1.0, this.ctx.currentTime); // Hard limit near 0dBFS
-        this.limiter.knee.setValueAtTime(0.0, this.ctx.currentTime); // Hard knee
-        this.limiter.ratio.setValueAtTime(20.0, this.ctx.currentTime); // Brickwall ratio
-        this.limiter.attack.setValueAtTime(0.001, this.ctx.currentTime); // Instant attack
-        this.limiter.release.setValueAtTime(0.05, this.ctx.currentTime); // Fast recovery
-        
-        // --- Analog Drive (WaveShaper) ---
-        this.driveNode = this.ctx.createWaveShaper();
-        this.driveNode.curve = this.makeDistortionCurve(this.params.driveAmount);
-        this.driveNode.oversample = '4x';
-        
-        // Master Filter & LFO
+        // ═══════════════════════════════════════════════════════════
+        //  SIGNAL CHAIN (left to right):
+        //
+        //  Pluck voices ─┐
+        //  Delay tails  ─┼─► voiceBus ─► STAGE 1: Voice Bus Compressor
+        //  Reverb wet   ─┘               │  (tames individual hit stacking)
+        //                                ▼
+        //                           voiceMuteGain  (mute switch for plucks)
+        //                                │
+        //  Drone voices ─────────────────┤  (drone feeds in AFTER mute,
+        //                                │   so it's never silenced)
+        //                                ▼
+        //                          STAGE 2: Master Bus Compressor
+        //                           (glues pluck + drone together,
+        //                            gentle ratio, musical behaviour)
+        //                                │
+        //                          globalFilter + LFO
+        //                                │
+        //                          STAGE 3: True Peak Limiter
+        //                           (brickwall at -0.5 dBFS,
+        //                            ultra-fast attack, stops all clipping)
+        //                                │
+        //                           masterGain  (user volume fader)
+        //                                │
+        //                           ctx.destination
+        // ═══════════════════════════════════════════════════════════
+
+        // ── STAGE 1: Voice Bus Compressor ───────────────────────────
+        // Handles transient stacking from many simultaneous plucks.
+        // Fast attack catches peaks, moderate release lets it breathe.
+        this.voiceBus = this.ctx.createGain();
+        this.voiceBus.gain.setValueAtTime(0.7, t); // pre-gain: pull voices down before compression
+
+        this.voiceCompressor = this.ctx.createDynamicsCompressor();
+        this.voiceCompressor.threshold.setValueAtTime(-18, t); // starts working at -18dB
+        this.voiceCompressor.knee.setValueAtTime(6, t);        // soft knee, musical
+        this.voiceCompressor.ratio.setValueAtTime(4, t);       // 4:1 — firm but not squashed
+        this.voiceCompressor.attack.setValueAtTime(0.003, t);  // 3ms — catches transient peaks
+        this.voiceCompressor.release.setValueAtTime(0.15, t);  // 150ms — fast enough to pump subtly
+
+        // ── Voice Mute Gain ─────────────────────────────────────────
+        this.voiceMuteGain = this.ctx.createGain();
+        this.voiceMuteGain.gain.setValueAtTime(1.0, t);
+
+        // ── Drone Bus Gain ───────────────────────────────────────────
+        // Drone voices feed in here AFTER voiceMuteGain so they are
+        // never silenced. Pre-scaled to sit below pluck headroom.
+        this.droneBus = this.ctx.createGain();
+        this.droneBus.gain.setValueAtTime(0.6, t);
+
+        // ── STAGE 2: Master Bus Compressor ───────────────────────────
+        // Glues pluck + drone together into a cohesive mix.
+        // Gentle ratio, slower attack to preserve transient character.
+        this.masterCompressor = this.ctx.createDynamicsCompressor();
+        this.masterCompressor.threshold.setValueAtTime(-12, t); // only touches louder moments
+        this.masterCompressor.knee.setValueAtTime(8, t);        // wide soft knee, very transparent
+        this.masterCompressor.ratio.setValueAtTime(2.5, t);     // 2.5:1 — subtle glue
+        this.masterCompressor.attack.setValueAtTime(0.015, t);  // 15ms — lets transient through first
+        this.masterCompressor.release.setValueAtTime(0.4, t);   // 400ms — slow, avoids pumping
+
+        // ── Master Filter & LFO ─────────────────────────────────────
         this.globalFilter = this.ctx.createBiquadFilter();
         this.globalFilter.type = 'lowpass';
-        this.globalFilter.frequency.setValueAtTime(this.params.masterFilter, this.ctx.currentTime);
-        this.globalFilter.Q.setValueAtTime(1.0, this.ctx.currentTime);
-        
+        this.globalFilter.frequency.setValueAtTime(this.params.masterFilter, t);
+        this.globalFilter.Q.setValueAtTime(1.0, t);
+
         this.globalLFO = this.ctx.createOscillator();
         this.globalLFO.type = 'sine';
-        this.globalLFO.frequency.setValueAtTime(0.1, this.ctx.currentTime); // Very slow sweep (10 seconds)
-        
+        this.globalLFO.frequency.setValueAtTime(0.1, t);
         this.lfoGain = this.ctx.createGain();
-        this.lfoGain.gain.setValueAtTime(this.params.lfoDepth, this.ctx.currentTime);
-        
+        this.lfoGain.gain.setValueAtTime(this.params.lfoDepth, t);
         this.globalLFO.connect(this.lfoGain);
         this.lfoGain.connect(this.globalFilter.frequency);
         this.globalLFO.start();
 
-        this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(this.params.masterVolume, this.ctx.currentTime);
+        // ── STAGE 3: True Peak Limiter ───────────────────────────────
+        // Brickwall. Nothing gets through above -0.5 dBFS (~0.944 linear).
+        // Ultra-fast attack, instant response. This is the safety net.
+        this.limiter = this.ctx.createDynamicsCompressor();
+        this.limiter.threshold.setValueAtTime(-0.5, t);  // brickwall ceiling
+        this.limiter.knee.setValueAtTime(0, t);           // hard knee — no overshoot
+        this.limiter.ratio.setValueAtTime(20, t);         // 20:1 ≈ limiting
+        this.limiter.attack.setValueAtTime(0.0001, t);    // 0.1ms — instantaneous
+        this.limiter.release.setValueAtTime(0.05, t);     // 50ms — quick reset
 
-        // --- Synthetic Reverb (Convolver) ---
+        // ── Master Output Gain ───────────────────────────────────────
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(this.params.masterVolume, t);
+
+        // ── Reverb ──────────────────────────────────────────────────
         this.setupReverb();
 
-        // --- Delay Network ---
+        // ── Delay Network ───────────────────────────────────────────
         this.delayNode = this.ctx.createDelay(3.0);
-        this.delayNode.delayTime.setValueAtTime(this.params.delayTime, this.ctx.currentTime);
+        this.delayNode.delayTime.setValueAtTime(this.params.delayTime, t);
         this.feedbackNode = this.ctx.createGain();
-        this.feedbackNode.gain.setValueAtTime(this.params.delayFeedback, this.ctx.currentTime);
+        // Hard cap at 0.75 — above this, delay tails can ring up indefinitely
+        // and cause the kind of slow-building fizz that's hard to trace
+        this.feedbackNode.gain.setValueAtTime(Math.min(this.params.delayFeedback, 0.75), t);
         this.delayFilter = this.ctx.createBiquadFilter();
         this.delayFilter.type = 'lowpass';
-        this.delayFilter.frequency.setValueAtTime(1500, this.ctx.currentTime);
+        this.delayFilter.frequency.setValueAtTime(2000, t); // darken delay tails slightly
+        this.delayNode.connect(this.delayFilter);
+        this.delayFilter.connect(this.feedbackNode);
+        this.feedbackNode.connect(this.delayNode); // feedback loop
 
-        // --- Tape Flutter LFO ---
+        // ── Tape Flutter LFO ────────────────────────────────────────
         this.flutterLFO = this.ctx.createOscillator();
         this.flutterLFO.type = 'sine';
-        this.flutterLFO.frequency.setValueAtTime(0.3, this.ctx.currentTime);
+        this.flutterLFO.frequency.setValueAtTime(0.3, t);
         this.flutterGain = this.ctx.createGain();
-        this.flutterGain.gain.setValueAtTime(this.params.tapeFlutter, this.ctx.currentTime);
+        this.flutterGain.gain.setValueAtTime(this.params.tapeFlutter, t);
         this.flutterLFO.connect(this.flutterGain);
         this.flutterGain.connect(this.delayNode.delayTime);
         this.flutterLFO.start();
 
-        this.delayNode.connect(this.delayFilter);
-        this.delayFilter.connect(this.feedbackNode);
-        this.feedbackNode.connect(this.delayNode);
-        
-        // Synths -> Compressor -> Drive -> GlobalFilter -> MasterGain -> Analyser -> Limiter -> Dest
-        // Synths -> Delay -> Compressor
-        // Synths -> ReverbWet -> Compressor
-        this.delayFilter.connect(this.compressor); 
-        this.compressor.connect(this.driveNode);
-        this.driveNode.connect(this.globalFilter);
-        this.globalFilter.connect(this.masterGain);
-        this.masterGain.connect(this.analyser);
-        this.analyser.connect(this.limiter);
-        this.limiter.connect(this.ctx.destination);
-        
-        this.startDrone();
+        // ── Wire the chain ───────────────────────────────────────────
+        // Pluck/delay/reverb → voiceBus → voiceCompressor → voiceMuteGain ─┐
+        //                                                                    ├─► masterCompressor → globalFilter → limiter → masterGain → dest
+        //                                          droneBus (per-voice) ────┘
+        this.delayFilter.connect(this.voiceBus);   // delay tails into voice bus
+        this.voiceBus.connect(this.voiceCompressor);
+        this.voiceCompressor.connect(this.voiceMuteGain);
+        this.voiceMuteGain.connect(this.masterCompressor);
+        this.droneBus.connect(this.masterCompressor); // drone enters AFTER mute gate
+        this.masterCompressor.connect(this.globalFilter);
+        this.globalFilter.connect(this.limiter);
+        this.limiter.connect(this.masterGain);
+        this.masterGain.connect(this.ctx.destination);
+
         this.isInitialized = true;
     }
 
-    makeDistortionCurve(amount) {
-        const k = typeof amount === 'number' ? amount : 50;
-        const n_samples = 44100;
-        const curve = new Float32Array(n_samples);
-        const deg = Math.PI / 180;
-        for (let i = 0; i < n_samples; ++i) {
-            const x = i * 2 / n_samples - 1;
-            curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
-        }
-        return curve;
-    }
-
     setupReverb() {
-        const length = this.ctx.sampleRate * 2.5; // 2.5 second tail
-        const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
-        const left = impulse.getChannelData(0);
-        const right = impulse.getChannelData(1);
-        
-        // Generate a warm, low-passed noise impulse response
-        let lastL = 0, lastR = 0;
+        const sr     = this.ctx.sampleRate;
+        const length = sr * 2.5;
+        const buf    = this.ctx.createBuffer(2, length, sr);
+        const L      = buf.getChannelData(0);
+        const R      = buf.getChannelData(1);
+        let lL = 0, lR = 0;
         for (let i = 0; i < length; i++) {
-            const decay = Math.exp(-i / (this.ctx.sampleRate * 0.8));
-            let noiseL = (Math.random() * 2 - 1);
-            let noiseR = (Math.random() * 2 - 1);
-            // 1-pole lowpass
-            lastL = lastL + 0.1 * (noiseL - lastL);
-            lastR = lastR + 0.1 * (noiseR - lastR);
-            left[i] = lastL * decay;
-            right[i] = lastR * decay;
+            const d = Math.exp(-i / (sr * 0.8));
+            lL = lL + 0.1 * ((Math.random() * 2 - 1) - lL);
+            lR = lR + 0.1 * ((Math.random() * 2 - 1) - lR);
+            L[i] = lL * d;
+            R[i] = lR * d;
         }
-        
-        this.convolver = this.ctx.createConvolver();
-        this.convolver.buffer = impulse;
-        
+        this.convolver      = this.ctx.createConvolver();
+        this.convolver.buffer = buf;
         this.reverbGainNode = this.ctx.createGain();
         this.reverbGainNode.gain.setValueAtTime(this.params.reverbWash, this.ctx.currentTime);
-        
         this.convolver.connect(this.reverbGainNode);
-        this.reverbGainNode.connect(this.compressor); // Send reverb output to compressor
+        this.reverbGainNode.connect(this.voiceBus); // reverb wet → voice bus (gets compressed with plucks)
     }
 
     resume() {
@@ -604,236 +823,209 @@ class SpatialAudioEngine {
     }
 
     updateParam(key, value) {
-        if (key === 'scale') { this.currentScale = value; this.updateScale(); return; }
-        if (key === 'waveform') { this.currentWaveform = value; return; }
-        if (key === 'key') { this.currentKey = parseInt(value); this.updateScale(); return; }
-        if (key === 'globalPitch') { this.globalPitch = parseInt(value); this.updateScale(); return; }
+        // Non-numeric params
+        if (key === 'scale')       { this.currentScale = value; this.updateScale(); return; }
+        if (key === 'waveform')    { this.currentWave  = value; return; }
+        if (key === 'key')         { this.currentKey   = parseInt(value, 10); this.updateScale(); return; }
+        if (key === 'globalPitch') { this.globalPitch  = parseInt(value, 10); this.updateScale(); return; }
 
-        const safeVal = MathUtils.safeFloat(value);
-        this.params[key] = safeVal;
-        
-        if (key === 'driveAmount' && this.driveNode) {
-            this.driveNode.curve = this.makeDistortionCurve(safeVal);
-            return;
-        }
-        
+        const v   = MathUtils.safeFloat(value);
+        this.params[key] = v;
         if (!this.isInitialized) return;
         const now = this.ctx.currentTime;
 
         try {
-            if (key === 'masterVolume' && this.masterGain) this.masterGain.gain.setTargetAtTime(safeVal, now, 0.05);
-            if (key === 'droneLevel' && this.droneGain) this.droneGain.gain.setTargetAtTime(safeVal, now, 0.1);
-            if (key === 'delayTime' && this.delayNode) this.delayNode.delayTime.setTargetAtTime(safeVal, now, 0.1);
-            if (key === 'delayFeedback' && this.feedbackNode) this.feedbackNode.gain.setTargetAtTime(safeVal, now, 0.1);
-            if (key === 'masterFilter' && this.globalFilter) this.globalFilter.frequency.setTargetAtTime(safeVal, now, 0.1);
-            if (key === 'lfoDepth' && this.lfoGain) this.lfoGain.gain.setTargetAtTime(safeVal, now, 0.1);
-            if (key === 'reverbWash' && this.reverbGainNode) this.reverbGainNode.gain.setTargetAtTime(safeVal, now, 0.1);
-            if (key === 'tapeFlutter' && this.flutterGain) this.flutterGain.gain.setTargetAtTime(safeVal, now, 0.1);
-        } catch (e) {}
+            if (key === 'masterVolume'  && this.masterGain)        this.masterGain.gain.setTargetAtTime(v, now, 0.05);
+            if (key === 'voiceMute'     && this.voiceMuteGain)     this.voiceMuteGain.gain.setTargetAtTime(v, now, 0.05);
+            // droneLevel, droneAttack, droneSustain read per-voice at trigger time — no live node
+            if (key === 'delayTime'     && this.delayNode)         this.delayNode.delayTime.setTargetAtTime(v, now, 0.1);
+            if (key === 'delayFeedback' && this.feedbackNode)      this.feedbackNode.gain.setTargetAtTime(Math.min(v, 0.75), now, 0.1);
+            if (key === 'masterFilter'  && this.globalFilter)      this.globalFilter.frequency.setTargetAtTime(v, now, 0.1);
+            if (key === 'lfoDepth'      && this.lfoGain)           this.lfoGain.gain.setTargetAtTime(v, now, 0.1);
+            if (key === 'reverbWash'    && this.reverbGainNode)    this.reverbGainNode.gain.setTargetAtTime(v, now, 0.1);
+            if (key === 'tapeFlutter'   && this.flutterGain)       this.flutterGain.gain.setTargetAtTime(v, now, 0.1);
+        } catch (e) { /* silently ignore AudioParam errors */ }
     }
 
-    startDrone() {
-        this.droneOsc = this.ctx.createOscillator();
-        this.droneGain = this.ctx.createGain();
-        this.droneOsc.type = 'sine';
-        
-        const baseFreqC2 = 65.406;
-        const droneFreq = baseFreqC2 * Math.pow(2, (this.currentKey + (this.globalPitch - 1) * 12) / 12);
-        this.droneOsc.frequency.setValueAtTime(droneFreq, this.ctx.currentTime); 
-        
-        this.droneGain.gain.setValueAtTime(this.params.droneLevel, this.ctx.currentTime); 
-        this.droneOsc.connect(this.droneGain);
-        this.droneGain.connect(this.compressor);
-        this.droneOsc.start();
-    }
-
-    triggerVoice(normalizedX, normalizedY, velocityScale = 1.0, octaveShift = 0) {
+    triggerVoice(normX, normY, velScale = 1.0, octaveShift = 0) {
         if (!this.isInitialized) return;
 
-        const now = this.ctx.currentTime;
-        const activeScale = this.activeScale;
-        
-        const scaleIndex = Math.floor(MathUtils.map(1 - normalizedY, 0, 1, 0, activeScale.length - 1));
-        const safeIndex = MathUtils.clamp(scaleIndex, 0, activeScale.length - 1);
-        
-        // Apply Octave Shift (Math.pow(2, octaveShift) gives 0.5 for -1, 2 for +1)
-        const freq = activeScale[safeIndex] * Math.pow(2, octaveShift);
-
-        if (!Number.isFinite(freq)) return;
+        const now   = this.ctx.currentTime;
+        const scale = this.activeScale;
+        const idx   = MathUtils.clamp(
+            Math.floor(MathUtils.map(1 - normY, 0, 1, 0, scale.length - 1)),
+            0, scale.length - 1
+        );
+        const freq = scale[idx] * Math.pow(2, octaveShift);
+        if (!Number.isFinite(freq) || freq <= 0) return;
 
         const panner = this.ctx.createStereoPanner();
-        panner.pan.setValueAtTime(MathUtils.clamp(normalizedX * 2 - 1, -1, 1), now);
+        panner.pan.setValueAtTime(MathUtils.clamp(normX * 2 - 1, -1, 1), now);
 
-        const carrier = this.ctx.createOscillator();
+        const carrier   = this.ctx.createOscillator();
         const modulator = this.ctx.createOscillator();
-        const modGain = this.ctx.createGain();
-        const voiceGain = this.ctx.createGain();
-        const filter = this.ctx.createBiquadFilter();
+        const modGain   = this.ctx.createGain();
 
-        carrier.type = this.currentWaveform;
-        modulator.type = 'sine'; 
-        
-        const ratio = safeIndex % 3 === 0 ? 1.5 : 2.0;
+        carrier.type   = this.currentWave;
+        modulator.type = 'sine';
+        const ratio = idx % 3 === 0 ? 1.5 : 2.0;
         carrier.frequency.setValueAtTime(freq, now);
         modulator.frequency.setValueAtTime(freq * ratio, now);
-        
-        modGain.gain.setValueAtTime(this.params.fmAmount * velocityScale, now);
+        modGain.gain.setValueAtTime(this.params.fmAmount * velScale, now);
 
-        // --- Sub-Bass & Harmonics Oscillators ---
-        const subOsc = this.ctx.createOscillator();
-        const subGain = this.ctx.createGain();
-        subOsc.type = 'sine'; 
-        subOsc.frequency.setValueAtTime(freq * 0.5, now); // One octave down
-        
-        const harmOsc = this.ctx.createOscillator();
-        const harmGain = this.ctx.createGain();
-        harmOsc.type = 'triangle'; // Richer overtones
-        harmOsc.frequency.setValueAtTime(freq * 3.0, now); // Perfect 12th up
-
-        filter.type = 'lowpass';
-        filter.Q.setValueAtTime(1.5, now);
-        filter.frequency.setValueAtTime(Math.min(20000, freq * 1.2), now); 
-        filter.frequency.exponentialRampToValueAtTime(Math.min(20000, this.params.filterCutoff), now + this.params.attack);
-        filter.frequency.exponentialRampToValueAtTime(freq, now + this.params.attack + this.params.decay);
-
-        // Independent Envelopes for Main, Sub, and Harmonics
-        const peakVol = MathUtils.clamp(0.12 * velocityScale, 0.0001, 1.0);
-        voiceGain.gain.setValueAtTime(0, now);
-        voiceGain.gain.linearRampToValueAtTime(peakVol, now + this.params.attack);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + this.params.attack + this.params.decay);
-
-        const subPeak = MathUtils.clamp(0.12 * velocityScale * this.params.subLevel, 0.0001, 1.0);
-        subGain.gain.setValueAtTime(0, now);
-        subGain.gain.linearRampToValueAtTime(subPeak, now + this.params.attack * 1.5);
-        subGain.gain.exponentialRampToValueAtTime(0.0001, now + this.params.attack + this.params.decay * 1.2);
-
-        const harmPeak = MathUtils.clamp(0.06 * velocityScale * this.params.harmonicsLevel, 0.0001, 1.0);
-        harmGain.gain.setValueAtTime(0, now);
-        harmGain.gain.linearRampToValueAtTime(harmPeak, now + this.params.attack * 0.5);
-        harmGain.gain.exponentialRampToValueAtTime(0.0001, now + this.params.attack + this.params.decay * 0.8);
-
-        // Routing
+        // ── FM: modulator → modGain → carrier.frequency ─────────────
         modulator.connect(modGain);
-        modGain.connect(carrier.frequency); 
-        
-        carrier.connect(voiceGain);
-        subOsc.connect(subGain);
-        harmOsc.connect(harmGain);
-        
-        // Sum oscillators into the filter
-        voiceGain.connect(filter);
-        subGain.connect(filter);
-        harmGain.connect(filter);
-        
-        filter.connect(panner);
-        
-        panner.connect(this.compressor); 
-        panner.connect(this.delayNode);  
-        panner.connect(this.convolver); // Send to reverb
+        modGain.connect(carrier.frequency);
 
-        modulator.start(now);
-        carrier.start(now);
-        subOsc.start(now);
-        harmOsc.start(now);
-        
-        // Give sub a bit more time to ring out before cutting
-        const stopTime = now + this.params.attack + this.params.decay + 0.5;
-        modulator.stop(stopTime);
-        carrier.stop(stopTime);
-        subOsc.stop(stopTime);
-        harmOsc.stop(stopTime);
+        // ── PLUCK path ───────────────────────────────────────────────
+        const pluckFilter = this.ctx.createBiquadFilter();
+        pluckFilter.type = 'lowpass';
+        pluckFilter.Q.setValueAtTime(1.5, now);
+        pluckFilter.frequency.setValueAtTime(Math.min(20000, freq * 4), now);
+        pluckFilter.frequency.exponentialRampToValueAtTime(
+            Math.min(20000, this.params.filterCutoff), now + this.params.attack
+        );
+        pluckFilter.frequency.exponentialRampToValueAtTime(
+            Math.max(40, freq * 0.5), now + this.params.attack + this.params.decay
+        );
+
+        const pluckGain = this.ctx.createGain();
+        const pluckPeak = MathUtils.clamp(0.2 * velScale, 0.01, 0.5);
+        const pluckDecayEnd = now + this.params.attack + this.params.decay;
+        // setTargetAtTime for attack: exponential curve, no discontinuity at t=0
+        pluckGain.gain.setValueAtTime(0, now);
+        pluckGain.gain.setTargetAtTime(pluckPeak, now, this.params.attack / 4);
+        // exponential decay to near-silence
+        pluckGain.gain.setTargetAtTime(0.00001, now + this.params.attack, this.params.decay / 4);
+
+        // ── DRONE path ───────────────────────────────────────────────
+        const droneFilter = this.ctx.createBiquadFilter();
+        droneFilter.type = 'lowpass';
+        droneFilter.Q.setValueAtTime(3.0, now);
+        droneFilter.frequency.setValueAtTime(freq * 2.5, now);
+        droneFilter.frequency.exponentialRampToValueAtTime(
+            Math.max(40, freq * 1.1), now + this.params.droneAttack
+        );
+
+        const droneGain = this.ctx.createGain();
+        const dronePeak = MathUtils.clamp(this.params.droneLevel * velScale, 0.00001, 1.0);
+        const droneSustainEnd = now + this.params.droneAttack + this.params.droneSustain;
+        droneGain.gain.setValueAtTime(0, now);
+        droneGain.gain.setTargetAtTime(dronePeak, now, this.params.droneAttack / 4);
+        droneGain.gain.setTargetAtTime(0.00001, now + this.params.droneAttack, this.params.droneSustain / 4);
+
+        // ── Connect graph ────────────────────────────────────────────
+        carrier.connect(pluckFilter);
+        pluckFilter.connect(pluckGain);
+        pluckGain.connect(panner);
+        panner.connect(this.voiceBus);
+        panner.connect(this.delayNode);
+        panner.connect(this.convolver);
+
+        carrier.connect(droneFilter);
+        droneFilter.connect(droneGain);
+        droneGain.connect(this.droneBus);
+
+        // ── Clean stop ───────────────────────────────────────────────
+        // Schedule gain to true zero well before stop() so the oscillator
+        // coasts silently — no discontinuity at the moment of node teardown.
+        // The 0.5s silent tail gives the gain curves time to reach inaudibility.
+        const silentTail = 0.5;
+        const pluckSilentAt = pluckDecayEnd + silentTail;
+        const droneSilentAt = droneSustainEnd + silentTail;
+        const stopTime = Math.max(pluckSilentAt, droneSilentAt);
+
+        pluckGain.gain.setValueAtTime(0, pluckSilentAt);
+        droneGain.gain.setValueAtTime(0, droneSilentAt);
+        // Also silence the FM modulator before stop — a live modulator hitting
+        // a stopped carrier can cause a brief frequency burst on teardown
+        modGain.gain.setTargetAtTime(0, now + this.params.attack, this.params.decay / 3);
+
+        modulator.start(now); modulator.stop(stopTime);
+        carrier.start(now);   carrier.stop(stopTime);
     }
 }
 
-/**
- * VISUAL & PHYSICS ENGINE
- */
+/* ─────────────────────────────────────────────────────────
+   VISUAL & PHYSICS ENGINE
+──────────────────────────────────────────────────────────── */
 class AetherSystem {
     constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.audio = new SpatialAudioEngine();
-        
-        this.emitters = [];
-        this.resonators = [];
-        this.ripples = [];
-        this.constellations = []; 
-        
-        this.waveSpeed = 100;
+        this.canvas  = document.getElementById(canvasId);
+        this.ctx     = this.canvas.getContext('2d');
+        this.audio   = new SpatialAudioEngine();
+
+        this.emitters     = [];
+        this.resonators   = [];
+        this.ripples      = [];
+        this.constellations = [];
+
+        this.waveSpeed      = 100;
         this.globalPulseRate = 1.0;
-        this.isRunning = false;
-        
-        // Toggles
-        this.driftEnabled = false;
-        this.showGrid = false;
-        this.snapEnabled = false;
-        this.magnetismEnabled = false;
-        
+        this.isRunning      = false;
+
+        this.driftEnabled  = false;
+        this.showGrid      = false;
+        this.snapEnabled   = false;
+
         this.dragNode = null;
         this.dragType = null;
-        this.lastHitResonator = null; 
-        
-        this.presets = [null, null, null, null];
+        this.lastHitResonator = null;
+
+        this.presets   = [null, null, null, null];
         this.storeMode = false;
-        
+        this.idCounter = 0;
+        this.lastTime  = 0;
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this.bindMouseEvents();
-
-        this.lastTime = 0;
-        this.idCounter = 0;
     }
 
     resize() {
         const parent = this.canvas.parentElement;
-        const dpr = window.devicePixelRatio || 1;
-        this.canvas.width = parent.clientWidth * dpr;
+        const dpr    = window.devicePixelRatio || 1;
+        this.canvas.width  = parent.clientWidth  * dpr;
         this.canvas.height = parent.clientHeight * dpr;
         this.ctx.scale(dpr, dpr);
-        this.width = parent.clientWidth;
+        this.width  = parent.clientWidth;
         this.height = parent.clientHeight;
         this.maxWaveRadius = Math.hypot(this.width, this.height);
     }
 
-    getNodeAtPos(pos) {
+    getNodeAtPos({ x, y }) {
+        const HIT = 25;
         for (let i = this.resonators.length - 1; i >= 0; i--) {
-            if (Math.hypot(this.resonators[i].x - pos.x, this.resonators[i].y - pos.y) < 25) return {node: this.resonators[i], type: 'resonator', index: i};
+            const r = this.resonators[i];
+            if (Math.hypot(r.x - x, r.y - y) < HIT) return { node: r, type: 'resonator', index: i };
         }
         for (let i = this.emitters.length - 1; i >= 0; i--) {
-            if (Math.hypot(this.emitters[i].x - pos.x, this.emitters[i].y - pos.y) < 25) return {node: this.emitters[i], type: 'emitter', index: i};
+            const e = this.emitters[i];
+            if (Math.hypot(e.x - x, e.y - y) < HIT) return { node: e, type: 'emitter', index: i };
         }
         return null;
     }
 
     bindMouseEvents() {
-        const getMousePos = (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top };
+        const pos = (e) => {
+            const r = this.canvas.getBoundingClientRect();
+            const t = e.touches ? e.touches[0] : e;
+            return { x: t.clientX - r.left, y: t.clientY - r.top };
         };
 
         const onDown = (e) => {
             if (!this.isRunning) return;
-            const pos = getMousePos(e);
-            const target = this.getNodeAtPos(pos);
-            
-            // Right Click Delete
+            const p      = pos(e);
+            const target = this.getNodeAtPos(p);
+
             if (e.button === 2 || (e.touches && e.touches.length > 1)) {
                 if (target) {
                     if (target.type === 'resonator') this.resonators.splice(target.index, 1);
-                    if (target.type === 'emitter') this.emitters.splice(target.index, 1);
+                    if (target.type === 'emitter')   this.emitters.splice(target.index, 1);
                 }
                 return;
             }
-            
-            // Shift-Click to Mute
-            if (e.shiftKey && target) {
-                target.node.muted = !target.node.muted;
-                return;
-            }
 
-            // Left Click Drag
             if (target) {
                 this.dragNode = target.node;
                 this.dragType = target.type;
@@ -841,131 +1033,95 @@ class AetherSystem {
         };
 
         const onMove = (e) => {
-            if (this.dragNode) {
-                const pos = getMousePos(e);
-                let targetY = MathUtils.clamp(pos.y, 20, this.height - 20);
-                
-                // Snap to Grid Logic
-                if (this.snapEnabled && this.dragType === 'resonator') {
-                    const scaleLength = this.audio.activeScale.length;
-                    const bandHeight = this.height / scaleLength;
-                    const bandIndex = Math.floor(targetY / bandHeight);
-                    // Snap to vertical center of the specific band
-                    targetY = (bandIndex * bandHeight) + (bandHeight / 2);
-                }
+            if (!this.dragNode) return;
+            const p = pos(e);
+            let ty  = MathUtils.clamp(p.y, 20, this.height - 20);
 
-                this.dragNode.anchorX = MathUtils.clamp(pos.x, 20, this.width - 20);
-                this.dragNode.anchorY = targetY;
-                this.dragNode.x = this.dragNode.anchorX;
-                this.dragNode.y = this.dragNode.anchorY;
+            if (this.snapEnabled && this.dragType === 'resonator') {
+                const bh  = this.height / this.audio.activeScale.length;
+                const bi  = Math.floor(ty / bh);
+                ty = bi * bh + bh / 2;
             }
+
+            this.dragNode.anchorX = MathUtils.clamp(p.x, 20, this.width - 20);
+            this.dragNode.anchorY = ty;
+            this.dragNode.x = this.dragNode.anchorX;
+            this.dragNode.y = this.dragNode.anchorY;
         };
 
-        const onUp = () => {
-            this.dragNode = null;
-            this.dragType = null;
-        };
+        const onUp = () => { this.dragNode = null; this.dragType = null; };
 
-        // Double Click to Cycle Octave or Mode
         this.canvas.addEventListener('dblclick', (e) => {
             if (!this.isRunning) return;
-            const pos = getMousePos(e);
-            const target = this.getNodeAtPos(pos);
-            if (target && target.type === 'resonator') {
-                // Cycle: 0 -> -1 -> 1 -> 0
-                if (target.node.octaveShift === 0) target.node.octaveShift = -1;
-                else if (target.node.octaveShift === -1) target.node.octaveShift = 1;
-                else target.node.octaveShift = 0;
-            } else if (target && target.type === 'emitter') {
+            const target = this.getNodeAtPos(pos(e));
+            if (!target) return;
+            if (target.type === 'resonator') {
+                const n = target.node;
+                n.octaveShift = n.octaveShift === 0 ? -1 : n.octaveShift === -1 ? 1 : 0;
+            } else if (target.type === 'emitter') {
                 target.node.pulseMode = (target.node.pulseMode + 1) % 3;
             }
         });
 
-        this.canvas.addEventListener('mousedown', onDown);
-        this.canvas.addEventListener('mousemove', onMove);
-        this.canvas.addEventListener('mouseup', onUp);
-        this.canvas.addEventListener('mouseleave', onUp);
-        this.canvas.addEventListener('touchstart', (e) => { if(e.touches.length === 1) e.preventDefault(); onDown(e); }, {passive: false});
-        this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e); }, {passive: false});
-        this.canvas.addEventListener('touchend', onUp);
-        this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+        this.canvas.addEventListener('mousedown',   onDown);
+        this.canvas.addEventListener('mousemove',   onMove);
+        this.canvas.addEventListener('mouseup',     onUp);
+        this.canvas.addEventListener('mouseleave',  onUp);
+        this.canvas.addEventListener('touchstart',  (e) => { if (e.touches.length === 1) e.preventDefault(); onDown(e); }, { passive: false });
+        this.canvas.addEventListener('touchmove',   (e) => { e.preventDefault(); onMove(e); }, { passive: false });
+        this.canvas.addEventListener('touchend',    onUp);
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
-    createNodeData(x, y, isEmitter) {
+    mkNode(x, y, isEmitter) {
         return {
-            id: this.idCounter++,
+            id: this.idCounter++, x, y,
             anchorX: x, anchorY: y,
-            x: x, y: y,
-            vx: 0, vy: 0,
             driftPhaseX: Math.random() * Math.PI * 2,
             driftPhaseY: Math.random() * Math.PI * 2,
             driftSpeedX: (Math.random() * 0.5 + 0.1) * (Math.random() > 0.5 ? 1 : -1),
             driftSpeedY: (Math.random() * 0.5 + 0.1) * (Math.random() > 0.5 ? 1 : -1),
-            muted: false,
-            ...(isEmitter ? {
-                basePulseRate: 1.5 + Math.random() * 2.5,
-                timeSincePulse: Math.random() * 2,
-                pulseMode: 0,
-                burstsPending: 0,
-                timeSinceBurst: 0
-            } : {
-                flash: 0,
-                particles: [],
-                octaveShift: 0 // 0=Mid, -1=Bass, 1=High
-            })
+            ...(isEmitter
+                ? { basePulseRate: 1.5 + Math.random() * 2.5, timeSincePulse: Math.random() * 2, pulseMode: 0, burstsPending: 0, timeSinceBurst: 0 }
+                : { flash: 0, particles: [], octaveShift: 0 }
+            )
         };
     }
 
     savePreset(slot) {
         this.presets[slot] = {
-            emitters: this.emitters.map(e => ({...e, normX: e.anchorX/this.width, normY: e.anchorY/this.height})),
-            resonators: this.resonators.map(r => ({...r, normX: r.anchorX/this.width, normY: r.anchorY/this.height}))
+            emitters:   this.emitters.map(e   => ({ ...e, nX: e.anchorX / this.width, nY: e.anchorY / this.height })),
+            resonators: this.resonators.map(r => ({ ...r, nX: r.anchorX / this.width, nY: r.anchorY / this.height }))
         };
     }
-    
+
     loadPreset(slot) {
         const p = this.presets[slot];
         if (!p) return;
-        this.emitters = p.emitters.map(e => ({...e, anchorX: e.normX*this.width, anchorY: e.normY*this.height, x: e.normX*this.width, y: e.normY*this.height, vx: 0, vy: 0, timeSincePulse: 0, burstsPending: 0, timeSinceBurst: 0}));
-        this.resonators = p.resonators.map(r => ({...r, anchorX: r.normX*this.width, anchorY: r.normY*this.height, x: r.normX*this.width, y: r.normY*this.height, vx: 0, vy: 0, flash: 0, particles: []}));
+        this.emitters   = p.emitters.map(e   => ({ ...e, anchorX: e.nX * this.width, anchorY: e.nY * this.height, x: e.nX * this.width, y: e.nY * this.height, timeSincePulse: 0, burstsPending: 0, timeSinceBurst: 0 }));
+        this.resonators = p.resonators.map(r => ({ ...r, anchorX: r.nX * this.width, anchorY: r.nY * this.height, x: r.nX * this.width, y: r.nY * this.height, flash: 0, particles: [] }));
         this.ripples = [];
         this.constellations = [];
         if (!this.isRunning) this.updateAndDraw(0);
     }
 
-    addEmitter() {
-        const x = this.width * 0.2 + Math.random() * (this.width * 0.6);
-        const y = this.height * 0.2 + Math.random() * (this.height * 0.6);
-        this.emitters.push(this.createNodeData(x, y, true));
-    }
-
-    addResonator() {
-        const x = this.width * 0.2 + Math.random() * (this.width * 0.6);
-        const y = this.height * 0.2 + Math.random() * (this.height * 0.6);
-        this.resonators.push(this.createNodeData(x, y, false));
-    }
+    addEmitter()   { const rX = this.width * 0.15, rW = this.width * 0.7, rY = this.height * 0.15, rH = this.height * 0.7; this.emitters.push(this.mkNode(rX + Math.random() * rW, rY + Math.random() * rH, true)); }
+    addResonator() { const rX = this.width * 0.15, rW = this.width * 0.7, rY = this.height * 0.15, rH = this.height * 0.7; this.resonators.push(this.mkNode(rX + Math.random() * rW, rY + Math.random() * rH, false)); }
 
     mutateSpace() {
-        [...this.emitters, ...this.resonators].forEach(node => {
-            const bandHeight = this.height / this.audio.activeScale.length;
-            
-            node.anchorX = this.width * 0.1 + Math.random() * (this.width * 0.8);
-            let targetY = this.height * 0.1 + Math.random() * (this.height * 0.8);
-            
-            if(this.snapEnabled) {
-                const bandIndex = Math.floor(targetY / bandHeight);
-                targetY = (bandIndex * bandHeight) + (bandHeight / 2);
-            }
-            
-            node.anchorY = targetY;
+        const bh = this.height / this.audio.activeScale.length;
+        for (const node of [...this.emitters, ...this.resonators]) {
+            node.anchorX = this.width  * 0.1 + Math.random() * this.width  * 0.8;
+            let ty       = this.height * 0.1 + Math.random() * this.height * 0.8;
+            if (this.snapEnabled) { const bi = Math.floor(ty / bh); ty = bi * bh + bh / 2; }
+            node.anchorY = ty;
             node.x = node.anchorX;
             node.y = node.anchorY;
-            
             if (node.octaveShift !== undefined && Math.random() > 0.6) {
                 const r = Math.random();
-                node.octaveShift = r > 0.66 ? 1 : (r > 0.33 ? -1 : 0);
+                node.octaveShift = r > 0.66 ? 1 : r > 0.33 ? -1 : 0;
             }
-        });
+        }
         this.ripples = [];
         this.constellations = [];
     }
@@ -984,166 +1140,134 @@ class AetherSystem {
             this.audio.init();
             this.audio.resume();
             this.lastTime = performance.now();
-            this.loop(this.lastTime);
+            requestAnimationFrame((t) => this.loop(t));
         }
         return this.isRunning;
     }
 
     drawGrid() {
         if (!this.showGrid) return;
-        const activeScaleLength = this.audio.activeScale.length;
-        const bandHeight = this.height / activeScaleLength;
-        
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-        this.ctx.lineWidth = 1;
+        const n  = this.audio.activeScale.length;
+        const bh = this.height / n;
+        this.ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        this.ctx.lineWidth   = 1;
         this.ctx.beginPath();
-        for(let i = 1; i < activeScaleLength; i++) {
-            const y = i * bandHeight;
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.width, y);
+        for (let i = 1; i < n; i++) {
+            this.ctx.moveTo(0, i * bh);
+            this.ctx.lineTo(this.width, i * bh);
         }
         this.ctx.stroke();
 
-        // Draw Snap lanes if snap is enabled and dragging
         if (this.snapEnabled && this.dragNode && this.dragType === 'resonator') {
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-            const bandIndex = Math.floor(this.dragNode.y / bandHeight);
-            this.ctx.fillRect(0, bandIndex * bandHeight, this.width, bandHeight);
+            const bi = Math.floor(this.dragNode.y / bh);
+            this.ctx.fillStyle = 'rgba(255,255,255,0.025)';
+            this.ctx.fillRect(0, bi * bh, this.width, bh);
         }
     }
 
     updateAndDraw(dt) {
-        this.ctx.fillStyle = 'rgba(2, 6, 23, 0.35)';
-        this.ctx.fillRect(0, 0, this.width, this.height);
+        const { ctx, width, height } = this;
+
+        ctx.fillStyle = 'rgba(2,6,23,0.35)';
+        ctx.fillRect(0, 0, width, height);
 
         this.drawGrid();
 
-        const dtSec = dt / 1000;
-        const driftAmount = 25; 
+        const dtS   = dt / 1000;
+        const drift = 25;
 
-        // --- CONSTELLATIONS ---
+        // ── Constellations ──
         for (let i = this.constellations.length - 1; i >= 0; i--) {
-            let c = this.constellations[i];
-            c.life -= dtSec * 0.8; 
-            if (c.life <= 0) {
-                this.constellations.splice(i, 1);
-            } else {
-                this.ctx.beginPath();
-                this.ctx.moveTo(c.x1, c.y1);
-                this.ctx.lineTo(c.x2, c.y2);
-                this.ctx.strokeStyle = `rgba(14, 165, 233, ${c.life * 0.3})`;
-                this.ctx.lineWidth = 1;
-                this.ctx.setLineDash([2, 4]);
-                this.ctx.stroke();
-                this.ctx.setLineDash([]);
-            }
+            const c = this.constellations[i];
+            c.life -= dtS * 0.8;
+            if (c.life <= 0) { this.constellations.splice(i, 1); continue; }
+            ctx.beginPath();
+            ctx.moveTo(c.x1, c.y1);
+            ctx.lineTo(c.x2, c.y2);
+            ctx.strokeStyle = `rgba(14,165,233,${c.life * 0.28})`;
+            ctx.lineWidth   = 1;
+            ctx.setLineDash([2, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
 
         const applyDrift = (node) => {
-            if (this.driftEnabled && node !== this.dragNode) {
-                node.driftPhaseX += node.driftSpeedX * dtSec;
-                node.driftPhaseY += node.driftSpeedY * dtSec;
-                node.x = node.anchorX + Math.sin(node.driftPhaseX) * driftAmount;
-                // If snap is enabled, don't drift on Y axis for resonators
-                if (this.snapEnabled && node.octaveShift !== undefined) {
-                    node.y = node.anchorY; 
-                } else {
-                    node.y = node.anchorY + Math.cos(node.driftPhaseY) * driftAmount;
-                }
-                node.x = MathUtils.clamp(node.x, 20, this.width - 20);
-                node.y = MathUtils.clamp(node.y, 20, this.height - 20);
-            }
+            if (!this.driftEnabled || node === this.dragNode) return;
+            node.driftPhaseX += node.driftSpeedX * dtS;
+            node.driftPhaseY += node.driftSpeedY * dtS;
+            node.x = MathUtils.clamp(node.anchorX + Math.sin(node.driftPhaseX) * drift, 20, width - 20);
+            node.y = (this.snapEnabled && node.octaveShift !== undefined)
+                ? node.anchorY
+                : MathUtils.clamp(node.anchorY + Math.cos(node.driftPhaseY) * drift, 20, height - 20);
         };
 
-        // --- EMITTERS ---
-        for (let em of this.emitters) {
+        // ── Emitters ──
+        for (const em of this.emitters) {
             applyDrift(em);
-            
-            if (em.muted) {
-                this.ctx.beginPath();
-                this.ctx.arc(em.x, em.y, 8, 0, Math.PI * 2);
-                this.ctx.fillStyle = `rgba(100, 116, 139, 0.4)`; // Slate
-                this.ctx.fill();
-                continue;
-            }
-            
-            em.timeSincePulse += dtSec;
-            
-            const currentTargetRate = em.basePulseRate * (2.0 - this.globalPulseRate); 
-            
+            em.timeSincePulse += dtS;
+
+            const rate = em.basePulseRate * (2.0 - this.globalPulseRate);
+
+            // Burst sub-pulses
             if (em.burstsPending > 0) {
-                em.timeSinceBurst += dtSec;
-                if (em.timeSinceBurst >= 0.15) { // 150ms interval between burst ripples
+                em.timeSinceBurst += dtS;
+                if (em.timeSinceBurst >= 0.15) {
                     em.timeSinceBurst = 0;
                     em.burstsPending--;
                     this.ripples.push({ x: em.x, y: em.y, radius: 0, hits: new Set() });
                 }
             }
-            
-            if (em.timeSincePulse >= currentTargetRate) {
+
+            if (em.timeSincePulse >= rate) {
                 em.timeSincePulse = 0;
-                this.ripples.push({
-                    x: em.x,
-                    y: em.y,
-                    radius: 0,
-                    hits: new Set()
-                });
+                this.ripples.push({ x: em.x, y: em.y, radius: 0, hits: new Set() });
                 if (em.pulseMode === 1) { em.burstsPending = 1; em.timeSinceBurst = 0; }
                 if (em.pulseMode === 2) { em.burstsPending = 2; em.timeSinceBurst = 0; }
             }
 
-            const pulse = 1 - Math.min(1, em.timeSincePulse / currentTargetRate);
-            this.ctx.beginPath();
-            this.ctx.arc(em.x, em.y, 8 + pulse * 6, 0, Math.PI * 2);
-            
-            let emColor = '99, 102, 241'; // Indigo
-            if (em.pulseMode === 1) emColor = '236, 72, 153'; // Pink
-            if (em.pulseMode === 2) emColor = '245, 158, 11'; // Amber
-            
-            this.ctx.fillStyle = `rgba(${emColor}, ${0.4 + pulse * 0.6})`;
-            this.ctx.fill();
+            const pulse = 1 - Math.min(1, em.timeSincePulse / rate);
+            let emC = '99,102,241';
+            if (em.pulseMode === 1) emC = '236,72,153';
+            if (em.pulseMode === 2) emC = '245,158,11';
+
+            // Outer glow ring
+            ctx.beginPath();
+            ctx.arc(em.x, em.y, 10 + pulse * 8, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${emC},${pulse * 0.4})`;
+            ctx.lineWidth   = 1;
+            ctx.stroke();
+
+            // Core
+            ctx.beginPath();
+            ctx.arc(em.x, em.y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${emC},${0.6 + pulse * 0.4})`;
+            ctx.fill();
         }
 
-        // --- RIPPLES & COLLISIONS ---
+        // ── Ripples & Collisions ──
         for (let i = this.ripples.length - 1; i >= 0; i--) {
-            let r = this.ripples[i];
-            const prevRadius = r.radius;
-            r.radius += this.waveSpeed * dtSec;
+            const rip  = this.ripples[i];
+            const prev = rip.radius;
+            rip.radius += this.waveSpeed * dtS;
 
-            for (let res of this.resonators) {
-                if (r.hits.has(res.id)) continue;
-                
-                const dist = Math.hypot(r.x - res.x, r.y - res.y);
-                
-                if (prevRadius <= dist && r.radius >= dist) {
-                    r.hits.add(res.id);
-                    
-                    // Magnetism Repulsion
-                    if (this.magnetismEnabled && res !== this.dragNode) {
-                        const angle = Math.atan2(res.y - r.y, res.x - r.x);
-                        res.vx += Math.cos(angle) * 8;
-                        res.vy += Math.sin(angle) * 8;
-                    }
-
-                    if (res.muted) continue;
-
+            for (const res of this.resonators) {
+                if (rip.hits.has(res.id)) continue;
+                const dist = Math.hypot(rip.x - res.x, rip.y - res.y);
+                if (prev <= dist && rip.radius >= dist) {
+                    rip.hits.add(res.id);
                     res.flash = 1.0;
-                    
-                    const normalizedX = res.x / this.width; 
-                    const normalizedY = res.y / this.height; 
-                    const velocity = Math.max(0.1, 1 - (dist / this.maxWaveRadius));
-                    this.audio.triggerVoice(normalizedX, normalizedY, velocity, res.octaveShift);
-                    
+
+                    const normX = res.x / width;
+                    const normY = res.y / height;
+                    const vel   = Math.max(0.1, 1 - dist / this.maxWaveRadius);
+                    this.audio.triggerVoice(normX, normY, vel, res.octaveShift);
+
                     if (this.lastHitResonator && this.lastHitResonator !== res) {
-                        this.constellations.push({
-                            x1: this.lastHitResonator.x, y1: this.lastHitResonator.y,
-                            x2: res.x, y2: res.y,
-                            life: 1.0
-                        });
+                        this.constellations.push({ x1: this.lastHitResonator.x, y1: this.lastHitResonator.y, x2: res.x, y2: res.y, life: 1.0 });
                     }
                     this.lastHitResonator = res;
-                    
-                    for(let p=0; p<8; p++) {
+
+                    for (let p = 0; p < 8; p++) {
                         res.particles.push({
                             x: res.x, y: res.y,
                             vx: (Math.random() - 0.5) * 5,
@@ -1154,166 +1278,124 @@ class AetherSystem {
                 }
             }
 
-            const alpha = Math.max(0, 1 - (r.radius / (this.maxWaveRadius * 0.8)));
+            const alpha = Math.max(0, 1 - rip.radius / (this.maxWaveRadius * 0.8));
             if (alpha > 0) {
-                this.ctx.beginPath();
-                this.ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-                this.ctx.strokeStyle = `rgba(6, 182, 212, ${alpha * 0.7})`;
-                this.ctx.lineWidth = 1.5 + (alpha * 1);
-                this.ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(6,182,212,${alpha * 0.65})`;
+                ctx.lineWidth   = 1.2 + alpha * 1.2;
+                ctx.stroke();
             } else {
                 this.ripples.splice(i, 1);
             }
         }
 
-        // --- RESONATORS ---
-        for (let res of this.resonators) {
-            
-            // Magnetism Attraction to Emitters
-            if (this.magnetismEnabled && res !== this.dragNode) {
-                let nearestDist = Infinity;
-                let nearestEm = null;
-                for (let em of this.emitters) {
-                    const d = Math.hypot(res.x - em.x, res.y - em.y);
-                    if (d < nearestDist) { nearestDist = d; nearestEm = em; }
-                }
-                if (nearestEm && nearestDist > 40) {
-                    const angle = Math.atan2(nearestEm.y - res.y, nearestEm.x - res.x);
-                    res.vx += Math.cos(angle) * 0.15;
-                    res.vy += Math.sin(angle) * 0.15;
-                }
-                // Friction
-                res.vx *= 0.92;
-                res.vy *= 0.92;
-                res.anchorX += res.vx;
-                res.anchorY += res.vy;
-            }
-
+        // ── Resonators ──
+        for (const res of this.resonators) {
             applyDrift(res);
-            
-            // Determine Color based on Octave & Mute State
-            let resColor = '20, 184, 166'; // Teal/Cyan default
-            if (res.octaveShift === -1) resColor = '236, 72, 153'; // Pink/Magenta
-            if (res.octaveShift === 1) resColor = '245, 158, 11'; // Amber/Yellow
-            if (res.muted) resColor = '100, 116, 139'; // Slate
 
+            let resC = '20,184,166';   // teal = mid
+            if (res.octaveShift === -1) resC = '236,72,153'; // pink = bass
+            if (res.octaveShift ===  1) resC = '245,158,11'; // amber = high
+
+            // Particles
             for (let i = res.particles.length - 1; i >= 0; i--) {
-                let p = res.particles[i];
+                const p = res.particles[i];
                 p.x += p.vx; p.y += p.vy;
-                p.life -= dtSec * 2;
-                if (p.life <= 0) {
-                    res.particles.splice(i, 1);
-                } else {
-                    this.ctx.beginPath();
-                    this.ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-                    this.ctx.fillStyle = `rgba(${resColor}, ${p.life})`;
-                    this.ctx.fill();
-                }
+                p.life -= dtS * 2;
+                if (p.life <= 0) { res.particles.splice(i, 1); continue; }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${resC},${p.life})`;
+                ctx.fill();
             }
 
-            this.ctx.save();
-            this.ctx.translate(res.x, res.y);
-            this.ctx.rotate(Math.PI / 4);
-            
+            ctx.save();
+            ctx.translate(res.x, res.y);
+            ctx.rotate(Math.PI / 4);
+
+            // Flash fill
             if (res.flash > 0) {
-                this.ctx.fillStyle = `rgba(${resColor}, ${res.flash * 0.6})`;
-                this.ctx.fillRect(-15, -15, 30, 30);
-                res.flash = Math.max(0, res.flash - dtSec * 3);
+                ctx.fillStyle = `rgba(${resC},${res.flash * 0.5})`;
+                ctx.fillRect(-14, -14, 28, 28);
+                res.flash = Math.max(0, res.flash - dtS * 3.5);
             }
 
-            this.ctx.strokeStyle = `rgba(${resColor}, ${0.5 + res.flash * 0.5})`;
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(-6, -6, 12, 12);
-            
-            // Visual indicator for octave shift
+            // Diamond border
+            ctx.strokeStyle = `rgba(${resC},${0.5 + res.flash * 0.5})`;
+            ctx.lineWidth   = 2;
+            ctx.strokeRect(-6, -6, 12, 12);
+
+            // Octave indicator
             if (res.octaveShift === 1) {
-                this.ctx.fillStyle = `rgba(${resColor}, 0.8)`;
-                this.ctx.fillRect(-2, -2, 4, 4);
+                ctx.fillStyle = `rgba(${resC},0.9)`;
+                ctx.fillRect(-2, -2, 4, 4);
             } else if (res.octaveShift === -1) {
-                this.ctx.beginPath();
-                this.ctx.arc(0, 0, 3, 0, Math.PI*2);
-                this.ctx.strokeStyle = `rgba(${resColor}, 0.8)`;
-                this.ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(0, 0, 3, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(${resC},0.9)`;
+                ctx.stroke();
             }
 
-            this.ctx.restore();
+            ctx.restore();
         }
-        
-        // --- MASTER OSCILLOSCOPE ---
-        if (this.audio.isInitialized && this.audio.analyser) {
-            const bufferLength = this.audio.analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            this.audio.analyser.getByteTimeDomainData(dataArray);
 
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
-            this.ctx.beginPath();
-            const sliceWidth = this.width * 1.0 / bufferLength;
-            let x = 0;
-
-            for (let i = 0; i < bufferLength; i++) {
-                const v = dataArray[i] / 128.0; // 0 to 2
-                const y = (v * this.height / 2) * 0.5 + (this.height * 0.75); // drawn in the lower quadrant
-
-                if (i === 0) this.ctx.moveTo(x, y);
-                else this.ctx.lineTo(x, y);
-
-                x += sliceWidth;
-            }
-            this.ctx.stroke();
-        }
-        
-        // UI Overlay during drag
+        // ── Drag HUD ──
         if (this.dragNode && this.dragType === 'resonator') {
-             this.ctx.beginPath();
-             this.ctx.moveTo(0, this.dragNode.y);
-             this.ctx.lineTo(this.width, this.dragNode.y);
-             this.ctx.moveTo(this.dragNode.x, 0);
-             this.ctx.lineTo(this.dragNode.x, this.height);
-             this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-             this.ctx.setLineDash([5, 5]);
-             this.ctx.stroke();
-             this.ctx.setLineDash([]);
-             
-             this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-             this.ctx.font = '10px monospace';
-             const pitchPct = Math.round((1 - (this.dragNode.y / this.height)) * 100);
-             let pan = ((this.dragNode.x / this.width) * 2 - 1);
-             const panStr = pan < 0 ? `L${Math.round(Math.abs(pan)*100)}` : `R${Math.round(pan*100)}`;
-             this.ctx.fillText(`PITCH: ${pitchPct}% | PAN: ${panStr}`, this.dragNode.x + 10, this.dragNode.y - 8);
+            ctx.beginPath();
+            ctx.moveTo(0, this.dragNode.y);
+            ctx.lineTo(width, this.dragNode.y);
+            ctx.moveTo(this.dragNode.x, 0);
+            ctx.lineTo(this.dragNode.x, height);
+            ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+            ctx.setLineDash([4, 6]);
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const pitchPct = Math.round((1 - this.dragNode.y / height) * 100);
+            const pan      = this.dragNode.x / width * 2 - 1;
+            const panStr   = pan < -0.02 ? `L${Math.round(Math.abs(pan) * 100)}` : pan > 0.02 ? `R${Math.round(pan * 100)}` : 'C';
+            ctx.fillStyle  = 'rgba(255,255,255,0.55)';
+            ctx.font       = '10px Space Mono, monospace';
+            ctx.fillText(`PITCH ${pitchPct}% · PAN ${panStr}`, this.dragNode.x + 10, this.dragNode.y - 8);
         }
+
+        // ── Update node count HUD ──
+        document.getElementById('node-count').textContent =
+            `EMT: ${this.emitters.length}  |  RCV: ${this.resonators.length}  |  RIPPLES: ${this.ripples.length}`;
     }
 
-    loop(currentTime) {
+    loop(t) {
         if (!this.isRunning) return;
-        const dt = currentTime - this.lastTime;
-        this.lastTime = currentTime;
-        
+        const dt  = t - this.lastTime;
+        this.lastTime = t;
         this.updateAndDraw(dt);
-        requestAnimationFrame((t) => this.loop(t));
+        requestAnimationFrame((nt) => this.loop(nt));
     }
 }
 
-/**
- * DOM BINDINGS
- */
+/* ─────────────────────────────────────────────────────────
+   DOM BINDINGS
+──────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
     const aether = new AetherSystem('aetherCanvas');
-    
-    const toggleBtn = document.getElementById('toggleEngineBtn');
+
+    // ── Engine toggle ──
+    const toggleBtn  = document.getElementById('toggleEngineBtn');
     const statusText = document.getElementById('status-text');
-    const statusInd = document.getElementById('status-indicator');
-    
+    const statusDot  = document.getElementById('status-dot');
+
     toggleBtn.addEventListener('click', () => {
-        const isRunning = aether.toggleEngine();
-        if (isRunning) {
+        const on = aether.toggleEngine();
+        if (on) {
             toggleBtn.classList.add('active');
-            toggleBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> SYSTEM ACTIVE';
-            statusText.innerText = "AETHER ONLINE";
-            statusText.classList.replace('text-rose-500', 'text-teal-400');
-            statusInd.classList.replace('bg-rose-500', 'bg-teal-400');
-            
-            if(aether.emitters.length === 0 && aether.resonators.length === 0) {
+            toggleBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> SYSTEM ACTIVE';
+            statusText.textContent = 'AETHER ONLINE';
+            statusText.style.color = 'var(--theme-teal)';
+            statusDot.style.background = 'var(--theme-teal)';
+
+            if (aether.emitters.length === 0 && aether.resonators.length === 0) {
                 aether.addEmitter();
                 aether.addResonator();
                 aether.addResonator();
@@ -1321,109 +1403,107 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             toggleBtn.classList.remove('active');
-            toggleBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ENGAGE AUDIO';
-            statusText.innerText = "SYSTEM SUSPENDED";
-            statusText.classList.replace('text-teal-400', 'text-rose-500');
-            statusInd.classList.replace('bg-teal-400', 'bg-rose-500');
+            toggleBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> ENGAGE AUDIO';
+            statusText.textContent = 'SYSTEM SUSPENDED';
+            statusText.style.color = '#f43f5e';
+            statusDot.style.background = '#f43f5e';
         }
     });
 
+    // ── Action buttons ──
     document.getElementById('addEmitterBtn').addEventListener('click', () => aether.addEmitter());
     document.getElementById('addResonatorBtn').addEventListener('click', () => aether.addResonator());
     document.getElementById('clearBtn').addEventListener('click', () => aether.clearSpace());
     document.getElementById('mutateBtn').addEventListener('click', () => aether.mutateSpace());
 
-    // Toggle Buttons Logic
-    const bindToggle = (id, propName, textOn, textOff) => {
+    const bindToggle = (id, prop, textOn, textOff) => {
         const btn = document.getElementById(id);
         btn.addEventListener('click', () => {
-            aether[propName] = !aether[propName];
-            if(aether[propName]) {
-                btn.classList.add('active');
-                btn.innerText = textOn;
-            } else {
-                btn.classList.remove('active');
-                btn.innerText = textOff;
-            }
+            aether[prop] = !aether[prop];
+            btn.classList.toggle('active', aether[prop]);
+            btn.textContent = aether[prop] ? textOn : textOff;
         });
     };
-    
-    bindToggle('toggleDriftBtn', 'driftEnabled', 'DRIFT: ON', 'DRIFT: OFF');
-    bindToggle('toggleMagnetBtn', 'magnetismEnabled', 'MAGNETISM: ON', 'MAGNETISM: OFF');
-    bindToggle('toggleGridBtn', 'showGrid', 'GRID: ON', 'GRID: OFF');
-    bindToggle('toggleSnapBtn', 'snapEnabled', 'SNAP: ON', 'SNAP: OFF');
+    bindToggle('toggleDriftBtn', 'driftEnabled', 'DRIFT: ON',  'DRIFT: OFF');
+    bindToggle('toggleGridBtn',  'showGrid',     'GRID: ON',   'GRID: OFF');
+    bindToggle('toggleSnapBtn',  'snapEnabled',  'SNAP: ON',   'SNAP: OFF');
 
-    // Preset Buttons
+    // ── Voices Mute (silences plucks, delay & reverb; drone is unaffected) ──
+    const muteVoicesBtn = document.getElementById('muteVoicesBtn');
+    let voicesMuted = false;
+    muteVoicesBtn.addEventListener('click', () => {
+        voicesMuted = !voicesMuted;
+        aether.audio.updateParam('voiceMute', voicesMuted ? 0 : 1);
+        muteVoicesBtn.textContent = voicesMuted ? 'VOICES: MUTED' : 'VOICES: ON';
+        muteVoicesBtn.style.color = voicesMuted ? '#fb7185' : '#f9a8d4';
+        muteVoicesBtn.style.borderColor = voicesMuted ? 'rgba(251,113,133,0.6)' : 'rgba(236,72,153,0.25)';
+        muteVoicesBtn.style.background = voicesMuted ? 'rgba(251,113,133,0.1)' : '';
+    });
+
+    // ── Presets ──
     const storeBtn = document.getElementById('preset-store');
     storeBtn.addEventListener('click', () => {
         aether.storeMode = !aether.storeMode;
-        if (aether.storeMode) {
-            storeBtn.classList.add('bg-rose-600', 'text-white');
-            storeBtn.classList.remove('bg-rose-900/30', 'text-rose-400');
-        } else {
-            storeBtn.classList.remove('bg-rose-600', 'text-white');
-            storeBtn.classList.add('bg-rose-900/30', 'text-rose-400');
-        }
+        storeBtn.classList.toggle('active', aether.storeMode);
+        storeBtn.textContent = aether.storeMode ? '● REC' : 'STORE';
     });
 
     document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const slot = parseInt(e.target.dataset.slot);
+        btn.addEventListener('click', () => {
+            const slot = parseInt(btn.dataset.slot);
             if (aether.storeMode) {
                 aether.savePreset(slot);
                 aether.storeMode = false;
-                storeBtn.classList.remove('bg-rose-600', 'text-white');
-                storeBtn.classList.add('bg-rose-900/30', 'text-rose-400');
-                btn.classList.add('bg-emerald-500/50', 'text-white');
-                setTimeout(() => btn.classList.remove('bg-emerald-500/50', 'text-white'), 300);
+                storeBtn.classList.remove('active');
+                storeBtn.textContent = 'STORE';
+                btn.style.background = 'rgba(134,239,172,0.25)';
+                setTimeout(() => btn.style.background = '', 350);
             } else {
                 aether.loadPreset(slot);
-                btn.classList.add('bg-cyan-500/50', 'text-white');
-                setTimeout(() => btn.classList.remove('bg-cyan-500/50', 'text-white'), 300);
+                btn.style.background = 'rgba(6,182,212,0.25)';
+                setTimeout(() => btn.style.background = '', 350);
             }
         });
     });
 
-    // Standard Sliders
-    const sliderBinds = [
-        { id: 'param-vol', key: 'masterVolume', fmt: v => `${Math.round(v * 100)}%` },
-        { id: 'param-drone', key: 'droneLevel', fmt: v => `${Math.round(v * 500)}%` },
-        { id: 'param-speed', key: 'waveSpeed', isAppLevel: true, fmt: v => `${v} px/s` },
-        { id: 'param-pulserate', key: 'globalPulseRate', isAppLevel: true, fmt: v => `${v.toFixed(1)}x` },
-        { id: 'param-pitch', key: 'globalPitch', fmt: v => v > 0 ? `+${v} Oct` : `${v} Oct` },
-        { id: 'param-sub', key: 'subLevel', fmt: v => `${Math.round(v * 100)}%` },
-        { id: 'param-harmonics', key: 'harmonicsLevel', fmt: v => `${Math.round(v * 100)}%` },
-        { id: 'param-fm', key: 'fmAmount', fmt: v => `${Math.round(v)}Hz` },
-        { id: 'param-cutoff', key: 'filterCutoff', fmt: v => `${Math.round(v)}Hz` },
-        { id: 'param-attack', key: 'attack', fmt: v => `${Math.round(v * 1000)}ms` },
-        { id: 'param-decay', key: 'decay', fmt: v => `${v.toFixed(1)}s` },
-        { id: 'param-dtime', key: 'delayTime', fmt: v => `${Math.round(v * 1000)}ms` },
-        { id: 'param-dfb', key: 'delayFeedback', fmt: v => `${Math.round(v * 100)}%` },
-        { id: 'param-masterFilter', key: 'masterFilter', fmt: v => `${Math.round(v)}Hz` },
-        { id: 'param-lfoDepth', key: 'lfoDepth', fmt: v => `${Math.round(v)}Hz` },
-        { id: 'param-reverb', key: 'reverbWash', fmt: v => `${Math.round(v * 100)}%` },
-        { id: 'param-flutter', key: 'tapeFlutter', fmt: v => `${Math.round(v * 1000)}ms` },
-        { id: 'param-drive', key: 'driveAmount', fmt: v => `${Math.round(v)}%` },
+    // ── Sliders ──
+    // NOTE: Drone Vol is independent — its display now correctly shows 0–100%
+    //       relative to its own 0–0.5 range, not master range.
+    const sliders = [
+        { id: 'param-vol',          key: 'masterVolume',   app: false, fmt: v => `${Math.round(v * 100)}%` },
+        { id: 'param-drone',        key: 'droneLevel',     app: false, fmt: v => `${Math.round(v * 100)}%` },
+        { id: 'param-droneAttack',  key: 'droneAttack',    app: false, fmt: v => `${parseFloat(v).toFixed(2)}s` },
+        { id: 'param-droneSustain', key: 'droneSustain',   app: false, fmt: v => `${parseFloat(v).toFixed(1)}s` },
+        { id: 'param-speed',        key: 'waveSpeed',      app: true,  fmt: v => `${v}px/s` },
+        { id: 'param-pulserate',    key: 'globalPulseRate',app: true,  fmt: v => `${parseFloat(v).toFixed(1)}×` },
+        { id: 'param-pitch',        key: 'globalPitch',    app: false, fmt: v => v > 0 ? `+${v} Oct` : `${v} Oct` },
+        { id: 'param-fm',           key: 'fmAmount',       app: false, fmt: v => `${Math.round(v)}Hz` },
+        { id: 'param-cutoff',       key: 'filterCutoff',   app: false, fmt: v => `${Math.round(v)}Hz` },
+        { id: 'param-attack',       key: 'attack',         app: false, fmt: v => `${Math.round(v * 1000)}ms` },
+        { id: 'param-decay',        key: 'decay',          app: false, fmt: v => `${parseFloat(v).toFixed(1)}s` },
+        { id: 'param-dtime',        key: 'delayTime',      app: false, fmt: v => `${Math.round(v * 1000)}ms` },
+        { id: 'param-dfb',          key: 'delayFeedback',  app: false, fmt: v => `${Math.round(v * 100)}%` },
+        { id: 'param-masterFilter', key: 'masterFilter',   app: false, fmt: v => `${Math.round(v)}Hz` },
+        { id: 'param-lfoDepth',     key: 'lfoDepth',       app: false, fmt: v => `${Math.round(v)}Hz` },
+        { id: 'param-reverb',       key: 'reverbWash',     app: false, fmt: v => `${Math.round(v * 100)}%` },
+        { id: 'param-flutter',      key: 'tapeFlutter',    app: false, fmt: v => `${Math.round(v * 1000)}ms` },
     ];
 
-    sliderBinds.forEach(bind => {
-        const el = document.getElementById(bind.id);
-        const valEl = document.getElementById(bind.id.replace('param-', 'val-'));
-        el.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            valEl.innerText = bind.fmt(val);
-            if (bind.isAppLevel) {
-                aether[bind.key] = val;
-            } else {
-                aether.audio.updateParam(bind.key, val);
-            }
+    sliders.forEach(({ id, key, app, fmt }) => {
+        const el  = document.getElementById(id);
+        const val = document.getElementById(id.replace('param-', 'val-'));
+        el.addEventListener('input', () => {
+            const v = parseFloat(el.value);
+            val.textContent = fmt(v);
+            if (app) aether[key] = v;
+            else aether.audio.updateParam(key, v);
         });
     });
 
-    // Dropdowns
+    // ── Dropdowns ──
     document.getElementById('param-scale').addEventListener('change', (e) => aether.audio.updateParam('scale', e.target.value));
-    document.getElementById('param-key').addEventListener('change', (e) => aether.audio.updateParam('key', e.target.value));
-    document.getElementById('param-wave').addEventListener('change', (e) => aether.audio.updateParam('waveform', e.target.value));
+    document.getElementById('param-key').addEventListener('change',   (e) => aether.audio.updateParam('key', e.target.value));
+    document.getElementById('param-wave').addEventListener('change',  (e) => aether.audio.updateParam('waveform', e.target.value));
 });
 </script>
 </body>
